@@ -377,9 +377,8 @@ rm_previous_version_files() {
 
 	# текущий, создастся при включении соединения
 	rm_file /opt/etc/cron.5mins/check_vpn
-	# исторический
+	# legacy (пакет ранее назывался Квас): удаляем старые cron-скрипты при обновлении
 	rm_file /opt/etc/cron.5mins/ipset.kvas
-	# оптимизированные
 	rm_file /opt/etc/cron.hourly/ipset.kvas
 	rm_file /opt/etc/cron.daily/ipset.kvas
 

@@ -44,7 +44,7 @@ kvas/
 ## Управление роутером
 
 - **Команда:** `frt` (устанавливается в `/opt/bin/frt`).
-- **Основное:** `frt show` / `frt add <хост>` / `frt del <хост>` / `frt import <файл>` / `frt vpn set` / `frt dns crypt on|off`.
+- **Основное:** `frt show` / `frt add <хост>` / `frt del <хост>` / `frt import <файл>` / `frt vpn set` / `frt dns crypt on|off` (DoT через stubby).
 - **Справка на устройстве:** `frt help`.
 
 **Подробно:** [docs/ROUTER.md](docs/ROUTER.md) — установка, все подкоманды, структура файлов на роутере.
