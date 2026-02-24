@@ -2,109 +2,90 @@
 
 *Белый список хостов и маршрутизация трафика через VPN или Shadowsocks на роутере.*
 
-**Author:** Rudy Wolf
+**Author:** Rudy Wolf  
+**Лицензия:** [Apache 2.0](LICENCE.md) · **История:** [HISTORY.md](HISTORY.md)
 
 ---
 
-Пакет для роутеров на базе OpenWrt/Entware (Keenetic и др.): трафик к выбранным доменам идёт через туннель. Один список — один маршрут.
+## Что это
 
-- **Лицензия:** Apache License 2.0 — [LICENCE.md](LICENCE.md)
-- **История:** [HISTORY.md](HISTORY.md)
+Пакет для роутеров на базе OpenWrt/Entware (Keenetic и др.): трафик к выбранным доменам идёт через туннель. Один список — один маршрут. DNS: dnsmasq + stubby (DoT). AdGuard, Adblock и DNSCrypt не используются.
+
+---
+
+## Схема проекта
+
+```
+kvas/
+├── Makefile, docker-compose.yml   # Пакет и CI
+├── scripts/   build-ipk.sh, ci.sh # Сборка .ipk и полный цикл проверки
+├── tests/     run_tests.sh + ...  # Автотесты (список, dnsmasq, add/del)
+├── builder/   Docker, Jenkins     # Сборка в контейнере и пайплайн
+├── opt/       bin/frt, etc/       # Содержимое пакета (→ /opt на роутере)
+└── docs/      Гайды и документация
+```
+
+**Детальная структура и назначение каталогов:** [docs/PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md)
+
+---
+
+## Быстрый старт
+
+| Действие | Команда |
+|----------|---------|
+| Собрать .ipk (без Docker) | `./scripts/build-ipk.sh --quick` |
+| Сборка + тесты + проверка .ipk | `./scripts/ci.sh` или `docker-compose run --rm ci` |
+| Установка на роутер | Скопировать .ipk → `opkg install` → **`frt setup`** |
+
+Результат сборки: `./output/frt_*.ipk`.
+
+---
+
+## Управление роутером
+
+- **Команда:** `frt` (устанавливается в `/opt/bin/frt`).
+- **Основное:** `frt show` / `frt add <хост>` / `frt del <хост>` / `frt import <файл>` / `frt vpn set` / `frt dns crypt on|off`.
+- **Справка на устройстве:** `frt help`.
+
+**Подробно:** [docs/ROUTER.md](docs/ROUTER.md) — установка, все подкоманды, структура файлов на роутере.
+
+---
+
+## Автосборщики и тесты
+
+| Раздел | Описание | Гайд |
+|--------|----------|------|
+| **Сборка** | Быстрая сборка (--quick), Docker, SDK, CI, Jenkins. | [docs/BUILD.md](docs/BUILD.md) |
+| **Тесты** | Запуск тестов, сценарии (list_parsing, dnsmasq_generation, host_add_del, error_cases), CI. | [docs/TESTS.md](docs/TESTS.md) |
+
+Кратко:
+- **Сборка:** `./scripts/build-ipk.sh --quick` → `output/frt_*.ipk`; полный цикл — `./scripts/ci.sh`.
+- **Тесты:** `sh tests/run_tests.sh` (без роутера; вызываются из `ci.sh`).
 
 ---
 
 ## Требования
 
 - Роутер с [Entware](https://github.com/Entware/Entware) (например, Keenetic).
-- Зависимости: **jq**, **curl**, **dnsmasq-full**, **ipset**, **stubby** (DoT), **shadowsocks-libev** и др. (см. [Makefile](Makefile)).
-- DNS: **dnsmasq** + **stubby** (DNS over TLS). AdGuard, Adblock и DNSCrypt не используются.
-
----
-
-## Сборка .ipk
-
-### Быстрая сборка (без Docker и SDK)
-
-Для пакета с `PKGARCH:=all` достаточно упаковать `opt/` и служебные файлы:
-
-```bash
-./scripts/build-ipk.sh --quick
-# или
-./scripts/build-ipk.sh --pack-only
-```
-
-Требуется утилита `ar` (binutils). Результат: `./output/frt_*.ipk`. На Windows запускайте через `bash scripts/build-ipk.sh --quick` (WSL или Git Bash), не через PowerShell.
-
-### Сборка через Docker или SDK
-
-```bash
-./scripts/build-ipk.sh [OPTIONS]
-```
-
-- **Docker** (по умолчанию) — образ собирается при первом запуске, .ipk в `./output`.
-- **SDK** — при заданном `TOPDIR`: `export TOPDIR=/path/to/entware && ./scripts/build-ipk.sh --sdk`.
-
-Опции: `-o DIR` (каталог для .ipk), `-h` / `--help`.
-
-### Проверка перед заливкой на роутер
-
-Перед установкой пакета на роутер рекомендуется выполнить полный цикл: сборка, тесты, проверка структуры .ipk.
-
-**Локально:**
-```bash
-./scripts/ci.sh
-# или с режимом: ./scripts/ci.sh --docker
-```
-
-**В Docker (воспроизводимая среда):**
-```bash
-docker-compose run --rm ci
-```
-
-При успехе выводится «Ready for upload. .ipk in ./output/» — пакет готов к копированию на роутер и установке через `opkg install`.
-
-### CI (Jenkins)
-
-В [builder/](builder/) — Dockerfile, Jenkinsfile, скрипт `builder`. Артефакты в `output/`.
-
----
-
-## Установка на роутер
-
-1. Скопируйте .ipk на роутер (например, в `/opt/tmp/`).
-2. `opkg install /opt/tmp/frt_*.ipk`
-3. **`frt setup`** — первичная настройка.
+- Зависимости: jq, curl, dnsmasq-full, ipset, stubby, shadowsocks-libev и др. (см. [Makefile](Makefile)).
 
 ---
 
 ## Масштабирование (100k+ доменов)
 
-- **Список:** потоковое чтение `frt.list` (один проход), добавление — append, удаление — однопроходное переписывание файла (`grep -v -F -x`), без загрузки всего списка в память.
-- **Генерация frt.dnsmasq:** однопроходная запись строк `ipset=/домен/FRT_LIST`; при отсутствии `frt.list` — пустой вывод без ошибки.
-- **dnsmasq:** рекомендуется `dns-forward-max` 1024 и выше при больших списках; домены попадают в ipset по мере запросов через dnsmasq, без предразрешения всех доменов в IP.
-- **ipset:** используется ttl; массовое предразрешение 100k доменов в IP не выполняется — резолв по требованию через dnsmasq.
+Список обрабатывается потоково; добавление — append, удаление — однопроходное переписывание. Рекомендуется увеличить `dns-forward-max` в dnsmasq (например до 1024). Подробнее — в [docs/ROUTER.md](docs/ROUTER.md).
 
 ---
 
-## Тесты
+## Документация
 
-```bash
-sh tests/run_tests.sh
-```
-
-В [tests/](tests/): парсинг списка, генерация dnsmasq, добавление/удаление хостов, граничные случаи. Запуск в среде с `sh` (Linux, Git Bash, WSL). В CI можно добавить шаг после сборки.
-
----
-
-## Структура репозитория
-
-| Каталог / файл | Назначение |
-|----------------|------------|
-| **Makefile** | Пакет OpenWrt/Entware (версия, зависимости, install/postinst). |
-| **opt/** | Файлы пакета: скрипты (`bin/`, `etc/init.d/`, `etc/ndm/`), конфиги (`etc/conf/`). |
-| **tests/** | Тесты (список, dnsmasq, add/del, error_cases). |
-| **scripts/** | Сборка: `build-ipk.sh` (в т.ч. `--quick`), `postinst.in`. |
-| **builder/** | Docker, Jenkins, скрипт сборки в контейнере. |
+| Документ | Содержание |
+|----------|------------|
+| [docs/README.md](docs/README.md) | Оглавление документации. |
+| [docs/PROJECT-STRUCTURE.md](docs/PROJECT-STRUCTURE.md) | Структура репозитория и файлов на роутере. |
+| [docs/BUILD.md](docs/BUILD.md) | Сборка и автосборщики. |
+| [docs/TESTS.md](docs/TESTS.md) | Тесты. |
+| [docs/ROUTER.md](docs/ROUTER.md) | Управление роутером и команда frt. |
 
 ---
 

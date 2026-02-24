@@ -10,6 +10,8 @@
 .devices
 packages/
 .molot/
+output/
+logs/
 
 
 ## User-specific stuff
