@@ -1,0 +1,13 @@
+# CI: build FRT .ipk and run tests before uploading to router.
+# Run: docker-compose run --rm ci
+# Optional: docker-compose run --rm ci --docker  (uses full Docker build)
+services:
+  ci:
+    build:
+      context: .
+      dockerfile: builder/Dockerfile.ci
+    image: frt-ci:latest
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: ["./scripts/ci.sh", "--quick"]

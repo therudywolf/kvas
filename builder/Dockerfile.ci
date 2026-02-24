@@ -1,0 +1,20 @@
+# Light image for CI: build .ipk (pack-only) and run tests. No full Entware SDK.
+FROM debian:11-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    binutils \
+    bash \
+    ca-certificates \
+    findutils \
+    gzip \
+    tar \
+    grep \
+    sed \
+    coreutils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+ENTRYPOINT ["./scripts/ci.sh"]
+CMD ["--quick"]

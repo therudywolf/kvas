@@ -1,3 +1,10 @@
+## Автосборщик, автотестер, оптимизация под большие списки
+
+- **CI:** скрипт `scripts/ci.sh` — сборка .ipk (по умолчанию `--quick`), запуск `tests/run_tests.sh`, валидация структуры .ipk (ar, control). При успехе — «Ready for upload. .ipk in ./output/».
+- **Docker для CI:** `builder/Dockerfile.ci` (образ на debian:11-slim с binutils/bash), `docker-compose.yml` — сервис `ci`, запуск `docker-compose run --rm ci`.
+- **README:** раздел «Проверка перед заливкой на роутер» (локально и через docker-compose), раздел «Масштабирование (100k+ доменов)» с рекомендациями по потоку и dns-forward-max.
+- **Оптимизация:** в `opt/bin/main/dnsmasq` подсчёт записей (два `grep -c`) выполняется только при `FRT_DEBUG`, чтобы не делать лишние проходы по большим спискам.
+
 ## Аудит FRT: POSIX, безопасность, Jenkins, именование
 
 - **Окончания строк:** `.gitattributes` с `*.sh text eol=lf`; `scripts/build-ipk.sh` переведён на LF; в README — запуск на Windows через `bash scripts/build-ipk.sh`.
