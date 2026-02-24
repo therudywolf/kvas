@@ -62,8 +62,8 @@ build_quick() {
     echo "Building .ipk (pack-only)..."
     local MAKEFILE="${REPO_ROOT}/Makefile"
     local PKG_VERSION PKG_RELEASE
-    PKG_VERSION=$(grep -E '^PKG_VERSION:=' "$MAKEFILE" | sed 's/PKG_VERSION:=//')
-    PKG_RELEASE=$(grep -E '^PKG_RELEASE:=' "$MAKEFILE" | sed 's/PKG_RELEASE:=//')
+    PKG_VERSION=$(grep -E '^PKG_VERSION:=' "$MAKEFILE" | sed 's/PKG_VERSION:=//' | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    PKG_RELEASE=$(grep -E '^PKG_RELEASE:=' "$MAKEFILE" | sed 's/PKG_RELEASE:=//' | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     [ -z "$PKG_VERSION" ] && PKG_VERSION="1.1.9_beta-10"
     [ -z "$PKG_RELEASE" ] && PKG_RELEASE="19"
 

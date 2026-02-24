@@ -28,16 +28,21 @@ echo "PASS: empty list"
 printf '%s\n' "only.example.com" > "${list_file}"
 grep -v -F -x -- "nonexistent.example.com" "${list_file}" > "${list_file}.tmp" && mv "${list_file}.tmp" "${list_file}"
 cnt=$(grep -c . "${list_file}" 2>/dev/null || echo 0)
+cnt=$(echo "$cnt" | head -1 | tr -d '\r\n ')
 [ "${cnt}" -eq 1 ] && grep -q -F -x "only.example.com" "${list_file}" && ok=$((ok+1)) || { fail=$((fail+1)); echo "FAIL: delete non-existent should leave file unchanged"; }
 echo "PASS: delete non-existent"
 
 # --- Duplicates: add same host twice -> two lines (current behavior); idempotent del
 printf '%s\n' "dup.example.com" "dup.example.com" > "${list_file}"
+tr -d '\r' < "${list_file}" > "${list_file}.tmp" && mv "${list_file}.tmp" "${list_file}"
 cnt=$(grep -c . "${list_file}" 2>/dev/null || echo 0)
+cnt=$(echo "$cnt" | head -1 | tr -d '\r\n ')
 [ "${cnt}" -eq 2 ] && ok=$((ok+1)) || { fail=$((fail+1)); echo "FAIL: duplicates count"; }
-grep -v -F -x -- "dup.example.com" "${list_file}" > "${list_file}.tmp" && mv "${list_file}.tmp" "${list_file}"
-cnt=$(grep -c . "${list_file}" 2>/dev/null || echo 0)
-[ "${cnt}" -eq 0 ] && ok=$((ok+1)) || { fail=$((fail+1)); echo "FAIL: del all duplicates"; }
+grep -v -F -x -- "dup.example.com" "${list_file}" | tr -d '\r' > "${list_file}.tmp" && mv "${list_file}.tmp" "${list_file}"
+# After removing all matching lines, file should be empty (no remaining content lines)
+cnt=$(tr -d '\r' < "${list_file}" | grep -c . 2>/dev/null || echo 0)
+cnt=$(echo "$cnt" | head -1 | tr -d '\r\n ')
+[ "${cnt}" -eq 0 ] && ok=$((ok+1)) || { fail=$((fail+1)); echo "FAIL: del all duplicates (remaining lines: ${cnt})"; }
 echo "PASS: duplicates"
 
 # --- Special chars: # in middle, leading/trailing space
