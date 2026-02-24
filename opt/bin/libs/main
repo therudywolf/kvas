@@ -196,12 +196,7 @@ ipset__fill_by_domain() {
 
 	IFS=$'\n'
 	for domain_ip in ${ip_list}; do
-		# если уже есть в списке
-		if ipset list "${IPSET_TABLE_NAME}" | grep -qE "^${domain_ip} " ; then
-			continue
-		fi
-
-		log_warning "Добавление в IPSet ${IPSET_TABLE_NAME} ${domain_ip} домена ${host}"
+		# add -exist идемпотентно, проверка через list | grep при 100k+ записях слишком медленная
 		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${domain_ip}"
 	done
 }
@@ -746,8 +741,11 @@ version(){
 #
 # ------------------------------------------------------------------------------------------
 set_config_value() {
-	if grep -oq "${1}" "${FRT_CONF_FILE}"; then
-		sed -i "s/\(${1}=\).*/\1${2}/; s/^,//; s/\,/ /g;" "${FRT_CONF_FILE}"
+	# Безопасная замена: избегаем sed-инъекции при / или & в $1/$2
+	local key_esc
+	key_esc=$(escape_sed "$1")
+	if grep -qF -- "$1=" "${FRT_CONF_FILE}" 2>/dev/null; then
+		sed -i "s/^${key_esc}=.*/$(escape_sed "$1")=$(escape_sed "$2")/; s/^,//; s/\,/ /g;" "${FRT_CONF_FILE}"
 	else
 		echo "${1}=${2}" >> "${FRT_CONF_FILE}"
 	fi
