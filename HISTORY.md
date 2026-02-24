@@ -1,3 +1,11 @@
+## Рефакторинг: Forest Router Tool (FRT), DoT, оптимизация
+
+- **Переименование:** пакет и команда переименованы из KVAS/Квас в **Forest Router Tool (FRT)**. Команда: `frt`, конфиги: `frt.conf`, `frt.list`, ipset: `FRT_LIST`, путь: `/opt/apps/frt`.
+- **Удалены:** AdGuard Home, Adblock, DNSCrypt. DNS-цепочка: клиент → dnsmasq (localhost:9753) → **stubby (DoT)** → upstream (Cloudflare, Google и др.).
+- **DNS over TLS:** добавлен конфиг stubby (`/opt/etc/stubby/stubby.yml`), dnsmasq использует upstream `127.0.0.1#5353`. Зависимость: `stubby` (opkg install stubby).
+- **Оптимизация под 100k+ доменов:** однопроходное удаление из списка (grep -v), добавление — append; в скриптах ipset/dnsmasq заменены bash-конструкции на POSIX; увеличен `dns-forward-max` в dnsmasq.
+- **Тесты:** каталог `tests/` — парсинг списка, генерация dnsmasq, добавление/удаление хостов; точка входа `tests/run_tests.sh`.
+
 ## 1.1.9 beta 10
 - [#233](https://github.com/qzeleza/kvas/pull/233) Iptables правила
 

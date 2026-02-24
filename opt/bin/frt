@@ -1,41 +1,24 @@
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/check
-. /opt/apps/kvas/bin/libs/hosts
-. /opt/apps/kvas/bin/libs/route
-. /opt/apps/kvas/bin/libs/tags
-. /opt/apps/kvas/bin/libs/update
-. /opt/apps/kvas/bin/libs/vless
-. /opt/apps/kvas/bin/libs/vpn
-. /opt/apps/kvas/bin/main/setup
+. /opt/apps/frt/bin/libs/check
+. /opt/apps/frt/bin/libs/hosts
+. /opt/apps/frt/bin/libs/route
+. /opt/apps/frt/bin/libs/tags
+. /opt/apps/frt/bin/libs/update
+. /opt/apps/frt/bin/libs/vless
+. /opt/apps/frt/bin/libs/vpn
+. /opt/apps/frt/bin/main/setup
 
 #------------------------------------------------------------------------------
 #
-#	ПАКЕТ КВАС
-#	файл ./kvas/bin/kvas -> /opt/bin/kvas
+#	Forest Router Tool (FRT)
+#	/opt/bin/frt
 #
 #------------------------------------------------------------------------------
-#
-#	Данный файл служит для запуска пакета КВАС из командной строки
-#	и содержит основные команды запуска пакета:
-#	Обработка получаемых аргументов скрипта
-#	$1 - команда для обработки
-#	$2 - аргумент для работы команды
-#
-# ------------------------------------------------------------------------------
-#	Разработчик: mail@zeleza.ru
-#	Дата создания: 21/05/2022
-#	Лицензия: Apache License 2.0
-# ------------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------------------
-#
-#	Функция оторажения списка доменных имен и поиска доменного имени
-#	$1 - строка поиска
-# ------------------------------------------------------------------------------------------
-cmd_show_kvas_list(){
+cmd_show_frt_list(){
 
-	local domain_to_search="${1}"
+	domain_to_search="${1}"
 	if [ -z "${domain_to_search}" ] ; then
 		cmd_show_list
 	else
@@ -56,19 +39,15 @@ if  echo "${1}" | grep -qvEi 'uninstall' && [ -z "$(get_config_value "SETUP_FINI
 	exit 0
 fi
 
-#clear_file_content "${KVAS_LIST_FILE}"
-
 print_line
 case "${1}" in
 	setup)
-							echo "Настройка пакета КВАС завершена!"
-							echo "Для удаления пакета наберите 'kvas uninstall'"
+							echo "Настройка пакета FRT завершена!"
+							echo "Для удаления пакета наберите 'frt uninstall'"
 							;;
 
-	# Работа со списком
-
 	show | list | search | find)
-							cmd_show_kvas_list "${2}"
+							cmd_show_frt_list "${2}"
 		;;
 	purge | clear)			cmd_clear_list "${2}"
 		;;
@@ -93,18 +72,14 @@ case "${1}" in
 		esac
 		;;
 
-	# Расширенные настройки
-
-	# Тоннели
-
 	vless)
 		case "${2}" in
-			new) 	rm -f "${VLESS_CONFIG_FILE}" 
+			new) 	rm -f "${VLESS_CONFIG_FILE}"
 					start_vless "$(cat ${INFACE_NAMES_FILE} | grep vless | cut -d'|' -f2)"
 				;;
-			*) 		cmd_install_proxy_package 
+			*) 		cmd_install_proxy_package
 				;;
-		esac	
+		esac
 			;;
 
 	ssr)
@@ -134,8 +109,6 @@ case "${1}" in
 		esac
 		;;
 
-	# DNS
-
 	dns)
 		case "${2}" in
 			server) 		dns_server_install_remotely "${3}" ;;
@@ -148,43 +121,7 @@ case "${1}" in
 		case "${2}" in
 			port) 			cmd_dnsmasq_port_change "${3}" ;;
 			ip) 			cmd_dnsmasq_dns_change "${3}";;
-			on)				cmd_adguardhome_off ;;
-			status | *) 	exit_when_adguard_on status;
-							[ "${status}" = 0 ] && {
-								cmd_dnsmasq_listen_show;
-							} ;;
-		esac
-		;;
-
-	crypt | dnscrypt)
-		case "${2}" in
-			on) 			cmd_dns_crypt_on ;;
-			off) 			cmd_dns_crypt_off ;;
-			status | *) 	cmd_dns_crypt_status_show ;;
-		esac
-		;;
-
-	adblock | ads)
-		case "${2}" in
-			on) 			cmd_ads_protect_on ask;;
-			off) 			cmd_ads_protect_off ;;
-			edit) 			cmd_ads_edit ;;
-			add)			cmd_ads_add_host "${3}" ;;
-			del)			cmd_ads_del_from_skip_list "${3}" ;;
-			status | *) 	cmd_ads_status ;;
-		esac
-		;;
-
-	adguard)
-		case "${2}" in
-			on) 			cmd_adguardhome_on ;;
-			off) 			cmd_adguardhome_off ;;
-			test)			cmd_adguard_check ;;
-			update)			cmd_adguard_update ;;
-			restart)		/opt/etc/init.d/S99adguardhome restart
-				exit 0
-				;;
-			*) 				cmd_adguardhome_status ;;
+			status | *) 	cmd_dnsmasq_listen_show ;;
 		esac
 		;;
 
@@ -198,8 +135,6 @@ case "${1}" in
 		esac
 		;;
 
-	# Маршрутизация
-
 	tunnel)
 		cmd_tunnel
 	;;
@@ -210,20 +145,18 @@ case "${1}" in
 		esac
 		;;
 
-	# Поиск и устранение неисправностей
-
 	log)
 		case "${2}" in
-			error | err) syslog__show "${2}" 'КВАС' 'Ошибки Кваса:'                   "${3}" ;;
-			info)        syslog__show "${2}" 'КВАС' 'Информационные сообщения Кваса:' "${3}" ;;
-			*)           syslog__show ''     'КВАС' 'События Кваса:'                  "${2}" ;;
+			error | err) syslog__show "${2}" 'FRT' 'Ошибки FRT:'                   "${3}" ;;
+			info)        syslog__show "${2}" 'FRT' 'Информационные сообщения FRT:' "${3}" ;;
+			*)           syslog__show ''     'FRT' 'События FRT:'                  "${2}" ;;
 		esac
 	;;
 	syslog)
 		case "${2}" in
-			error | err) syslog__show "${2}" '!КВАС' 'Ошибки системы:'                   "${3}" ;;
-			info)        syslog__show "${2}" '!КВАС' 'Информационные сообщения системы:' "${3}" ;;
-			*)           syslog__show ''     '!КВАС' 'События системы:'                  "${2}" ;;
+			error | err) syslog__show "${2}" '!FRT' 'Ошибки системы:'                   "${3}" ;;
+			info)        syslog__show "${2}" '!FRT' 'Информационные сообщения системы:' "${3}" ;;
+			*)           syslog__show ''     '!FRT' 'События системы:'                  "${2}" ;;
 		esac
 	;;
 
@@ -250,29 +183,21 @@ case "${1}" in
 	                      [ -n "${2}" ] && exit 0
 	;;
 
-	reset | init)	        cmd_kvas_init
+	reset | init)	        cmd_frt_init
 		;;
-
-	# Управление пакетом
-
-	# Обновление
 
 	version | ver)			version
 		;;
-	upgrade | update)		sh /opt/apps/kvas/bin/main/upgrade "${2}" "${3}"; exit 0
+	upgrade | update)		sh /opt/apps/frt/bin/main/upgrade "${2}" "${3}"; exit 0
 		;;
-	rollback)				sh /opt/apps/kvas/bin/main/upgrade rollback "${2}"; exit 0
+	rollback)				sh /opt/apps/frt/bin/main/upgrade rollback "${2}"; exit 0
 		;;
-
-	# Отключение и удаление
 
 	pause|freeze)           cmd_pause_kvas ;;
 	unpause|unfreeze)       cmd_unpause_kvas ;;
 
 	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;
-
-	# Команды
 
 	help|-h|--h ) 			[ -n "${2}" ] && cmd_help | grep "${2}" || cmd_help
 		;;

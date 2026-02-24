@@ -50,16 +50,15 @@ get_host_ip(){
                 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'
 }
 
-get_ip_from_kvas(){
-        ub_tag=kvas
-        host_list=/opt/etc/kvas.list
+get_ip_from_frt(){
+        ub_tag=FRT_LIST
+        host_list=/opt/etc/frt.list
         num=0; ip=''
         dns=$(get_config_value DNS_DEFAULT | cut -d'#' -f1)
         while read -r host || [ -n "${host}" ]; do
                 ip=$(get_host_ip "${host}" "${dns}")
                 if [ -n "${ip}" ]; then
-                        if ipset list "${ub_tag}" | grep -q "${ip}" || \
-                           ([ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && grep -q "${host}/${ub_tag}" /opt/etc/AdGuardHome/AdGuardHome.yaml) ; then
+                        if ipset list "${ub_tag}" 2>/dev/null | grep -q "${ip}" ; then
                                 break
                         fi
                 fi

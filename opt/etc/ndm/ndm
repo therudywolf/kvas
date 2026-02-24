@@ -1,38 +1,31 @@
 #!/bin/sh
 #------------------------------------------------------------------------------
-#	ПАКЕТ КВАС
+#	Forest Router Tool (FRT)
 #------------------------------------------------------------------------------
 #
-#	Данный файл служит библиотекой переменных среды и функций,
-#	которые используются в событийном пакете ndm
+#	Библиотека переменных и функций для ndm
 #	https://github.com/ndmsystems/packages/wiki/Opkg-Component
 #
 # ------------------------------------------------------------------------------
-#	Разработчик: mail@zeleza.ru
-#	Дата создания: 13/09/2022
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------------------
-# Подключаем основные функции
-. /opt/apps/kvas/bin/libs/main
-# ------------------------------------------------------------------------------------------
-
+. /opt/apps/frt/bin/libs/main
 
 ROUTE_TABLE_ID=1001
 RULE_PRIORITY=1778
 MARK_NUM=0xd1000
 DNS_PORT=9753
 
-IPSET_DESTINATION_EXCLUDED=KVAS_DESTINATION_EXCLUDED
+IPSET_DESTINATION_EXCLUDED=FRT_DESTINATION_EXCLUDED
 
-CHAIN_DNS=KVAS_DNS
+CHAIN_DNS=FRT_DNS
 TABLE_DNS=nat
 
-CHAIN_MARK=KVAS_MARK
+CHAIN_MARK=FRT_MARK
 TABLE_MARK=mangle
 
-CHAIN_DNAT_TO_PORT=KVAS_DNAT_TO_PORT
+CHAIN_DNAT_TO_PORT=FRT_DNAT_TO_PORT
 TABLE_DNAT_TO_PORT=nat
 #ToDo: переписать на https://github.com/shadowsocks/shadowsocks-libev?tab=readme-ov-file#transparent-proxy-pure-tproxy
 

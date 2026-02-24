@@ -18,11 +18,11 @@
 #
 # ------------------------------------------------------------------------------------------
 
-# . /opt/apps/kvas/bin/libs/main
+# . /opt/apps/frt/bin/libs/main
 
 # Файл с тегами
-TAGS_FILE=/opt/apps/kvas/etc/conf/tags.list
-KVAS_LIST_FILE=/opt/etc/kvas.list
+TAGS_FILE=/opt/apps/frt/etc/conf/tags.list
+FRT_LIST_FILE=/opt/etc/kvas.list
 
 # ------------------------------------------------------------------------------------------
 #
@@ -138,7 +138,7 @@ _get_same_tag_domains_missing_in_protection_list() {
     local _list=""
 
     get_tag_domain_list "$tagname" | while read -r line; do
-        local _host=$(grep "^$line$" "${KVAS_LIST_FILE}")
+        local _host=$(grep "^$line$" "${FRT_LIST_FILE}")
         if [ -n "$_host" ]; then
             _list="${_list} ${line}"
         fi
@@ -243,15 +243,15 @@ has_section_domains_in_list() {
     local partial_present=false
     local missing_elements=""
 
-    [ -f "${KVAS_LIST_FILE}" ] || {
-        # error "Файл '${KVAS_LIST_FILE}' не найден."
+    [ -f "${FRT_LIST_FILE}" ] || {
+        # error "Файл '${FRT_LIST_FILE}' не найден."
         when_bad "ОШИБКА"
         return 1
     }
 
     for domain in $(get_tag_domain_list "$section" | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' ); do
 # echo "$domain"
-        if grep -q "^$domain$" "${KVAS_LIST_FILE}" ; then
+        if grep -q "^$domain$" "${FRT_LIST_FILE}" ; then
             none_present=false
             #[ "$action" = "del" ] && none_present=true
         else
@@ -412,15 +412,15 @@ cmd_update_tags_domain_list() {
     }
     
     if [ "${_force}" = force ] ; then
-        mv -f /opt/tmp/tags.list /opt/apps/kvas/etc/conf/tags.list
+        mv -f /opt/tmp/tags.list /opt/apps/frt/etc/conf/tags.list
     else
-        local _diff=$(diff /opt/apps/kvas/etc/conf/tags.list  /opt/tmp/tags.list  | grep -E '^\+\[' | tr -d +)
+        local _diff=$(diff /opt/apps/frt/etc/conf/tags.list  /opt/tmp/tags.list  | grep -E '^\+\[' | tr -d +)
         if [ -n "${_diff}" ] ; then
             print_line
             echo -e "В список были добавлены следущие закваски:\n${_diff}"
             print_line
             printf "%s" "${_diff}"
-            mv -f /opt/tmp/tags.list /opt/apps/kvas/etc/conf/tags.list
+            mv -f /opt/tmp/tags.list /opt/apps/frt/etc/conf/tags.list
         else
             print_line
             echo -e "В удаленном списке на ${BLUE}GitHub${NOCL} новых заквасок ${RED}не обнаружено${NOCL}."

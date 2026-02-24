@@ -1,0 +1,29 @@
+#!/bin/sh
+# ------------------------------------------------------------------------------------------
+#
+# 	Forest Router Tool (FRT)
+# ------------------------------------------------------------------------------------------
+#	Лицензия: Apache License 2.0
+# ------------------------------------------------------------------------------------------
+
+. /opt/apps/frt/bin/libs/ndm_d
+
+cli_inface="$(inface_cli)"
+
+if [ "${1}" = "hook" ] && echo "${id}" | grep -q "${cli_inface}"; then
+
+	case "${layer}-${level}" in
+
+		"ctrl-running")
+			cmd_vpn_iptable_reset &> /dev/null
+			logger -t "FRT"  "Соединение ${id} успешно подключено."
+		;;
+
+		"ctrl-disabled" )
+			link_reboot "${cli_inface}" &> /dev/null
+			logger -t "FRT"  "Соединение ${id} успешно завершено."
+		;;
+
+	esac
+
+fi

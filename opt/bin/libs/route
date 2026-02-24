@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/main
+. /opt/apps/frt/bin/libs/main
 
 # замена Singleton, чтобы скан был лишь при первом вызове
 IPS_KNOWN=''
@@ -183,10 +183,10 @@ cmd_tunnel() {
 	tunnel_keenetic_name=$(get_config_value 'INFACE_CLI')
 	if [ -z "${tunnel_net_name}" ]; then
 		echo 'Не найдено имя сетевого интерфейса.'
-		echo 'Настройте тоннель заново kvas tunnel set'
+		echo 'Настройте тоннель заново frt vpn set'
 	elif [ -z "${tunnel_keenetic_name}" ]; then
 		echo 'Не найдено Keenetic-имя.'
-		echo 'Настройте тоннель заново kvas tunnel set'
+		echo 'Настройте тоннель заново frt vpn set'
 	else
 		output=$( nets__get "${nets_dictionary}" "${tunnel_net_name}" 'title' | xargs )
 		ready 'Название' && when_ok "${output}"
@@ -277,9 +277,9 @@ route__show_block() {
 
 		#ToDo: сделать команды
 		content=$(printf '%s\n' \
-			"Отсутствуют. Можете указать строчку в ${KVAS_CONF_FILE}" \
+			"Отсутствуют. Можете указать строчку в ${FRT_CONF_FILE}" \
 			"${empty_example}" \
-			'и вызвать после этого kvas route refresh' \
+			'и вызвать после этого frt route refresh' \
 		)
 	fi
 

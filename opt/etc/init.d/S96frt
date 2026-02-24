@@ -1,0 +1,28 @@
+#!/bin/sh
+
+#------------------------------------------------------------------------------
+#
+#	Forest Router Tool (FRT)
+#
+#------------------------------------------------------------------------------
+#
+#	Init script for FRT at system boot.
+#	Tasks: create ipset tables, load ipset with domains.
+#
+# ------------------------------------------------------------------------------
+#	License: Apache License 2.0
+# ------------------------------------------------------------------------------
+
+case ${1} in
+	start|restart)
+		. /opt/apps/frt/bin/libs/vpn
+		cmd_frt_init no
+		if has_ssr_enable; then
+			while /opt/etc/init.d/S22shadowsocks status | grep -q dead
+			do
+				/opt/etc/init.d/S22shadowsocks restart
+				sleep 2
+			done
+		fi
+	;;
+esac

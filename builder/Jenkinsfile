@@ -18,7 +18,7 @@ pipeline {
         GITHUB_REPO = 'git@github.com:qzeleza/kvas.git'
         ROUTER_IP = credentials('ssh-github-key')
         ROUTER_PORT = '1221'
-        BUILD_PATH = "/build/entware 
+        BUILD_PATH = "/build/entware"
         USER_ID = 115
         GROUP_ID = 123
         APP_VERSION="${params.VERSION}-${params.STAGE}${params.BUILD}"
@@ -72,7 +72,7 @@ pipeline {
         stage("Сборка инструментария Entware и самого пакета") {
             steps {
                 script{
-                    docker.image("${env.DOCKER_IMAGE}").withRun("--mount type=bind,source=${env.WORKSPACE}/output,target=/output --mount type=bind,source=${env.WORKSPACE}/build,target=/build") {
+                    docker.image("${env.DOCKER_IMAGE}").withRun("--mount type=bind,source=${env.WORKSPACE},target=/home/${env.USER_NAME}/${env.JOB_NAME} --mount type=bind,source=${env.WORKSPACE}/output,target=/output --mount type=bind,source=${env.WORKSPACE}/build,target=/build") {
                     sh """
                         if [ ${params.FORCE_TOOLCHAIN_REBUILD} == 'true' ]; then 
                             # удаляем папку сборки, чтобы начать пересборку заново
@@ -98,7 +98,7 @@ pipeline {
         stage('Копирование пакета на роутер') {
             steps {
                 sshagent(credentials: ['ssh-key-for-router']) {
-                    sh "scp /app/${env.JOB_NAME}/packages/${env.JOB_NAME}.*.ipk root@${env.ROUTER_IP}:/opt/tmp/"
+                    sh "scp output/${env.JOB_NAME}.*.ipk root@${env.ROUTER_IP}:/opt/tmp/"
                     sh "ssh root@${env.ROUTER_IP} opkg install /opt/tmp/${env.JOB_NAME}.*.ipk"
                 }
             }
@@ -119,7 +119,7 @@ pipeline {
             steps {
                 sshagent(['router-ssh-key']) {
                     sh """
-                        ssh -p ${params.ROUTER_PORT} root@${params.ROUTER_IP} '/usr/bin/test-package'
+                        ssh -p ${env.ROUTER_PORT} root@${env.ROUTER_IP} '/usr/bin/test-package'
                     """
                 }
             }
@@ -161,11 +161,12 @@ pipeline {
             }
             steps {
                 script {
+                    def packageVersion = env.APP_VERSION ?: "${params.VERSION}-${params.STAGE}${params.BUILD}"
                     def releaseData = """
                         {
-                            "tag_name": "v${PACKAGE_VERSION}",
-                            "name": "Release ${PACKAGE_VERSION}",
-                            "body": "Automated release ${PACKAGE_VERSION}"
+                            "tag_name": "v${packageVersion}",
+                            "name": "Release ${packageVersion}",
+                            "body": "Automated release ${packageVersion}"
                         }
                     """
                     
@@ -185,19 +186,21 @@ pipeline {
                             -H "Authorization: token ${GITHUB_TOKEN}" \
                             -H "Content-Type: application/octet-stream" \
                             --data-binary @output/*.ipk \
-                            https://uploads.github.com/repos/owner/repo/releases/${releaseId}/assets?name=package-${PACKAGE_VERSION}.ipk
+                            https://uploads.github.com/repos/owner/repo/releases/${releaseId}/assets?name=package-${packageVersion}.ipk
                     """
                 }
             }
             post {
                 success {
                     script {
-                        sendTelegramMessage("🚀 Successfully released to GitHub: ${PACKAGE_VERSION}")
+                        def packageVersion = env.APP_VERSION ?: "${params.VERSION}-${params.STAGE}${params.BUILD}"
+                        sendTelegramMessage("🚀 Successfully released to GitHub: ${packageVersion}")
                     }
                 }
                 failure {
                     script {
-                        sendTelegramMessage("❌ Package build failed: ${PACKAGE_VERSION}")
+                        def packageVersion = env.APP_VERSION ?: "${params.VERSION}-${params.STAGE}${params.BUILD}"
+                        sendTelegramMessage("❌ Package build failed: ${packageVersion}")
                     }
                 }
             }

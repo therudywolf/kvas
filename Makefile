@@ -1,28 +1,25 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=kvas
+PKG_NAME:=frt
 PKG_VERSION:=1.1.9_beta-10
-PKG_RELEASE:= 19
+PKG_RELEASE:=19
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)-$(PKG_RELEASE)
-MOLOT_UNINSTALL:=kvas uninstall full
+MOLOT_UNINSTALL:=frt uninstall full
 
 include $(INCLUDE_DIR)/package.mk
 
-define Package/kvas
+define Package/frt
 	SECTION:=utils
 	CATEGORY:=Keendev
-	# DEPENDS:=+jq +curl +knot-dig +libpcre +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 +iptables +libopenssl +shadowsocks-rust   
-	DEPENDS:=+libpcre +jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +dnscrypt-proxy2 +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libmbedtls
+	DEPENDS:=+libpcre +jq +curl +knot-dig +nano-full +cron +bind-dig +dnsmasq-full +ipset +iptables +shadowsocks-libev-ss-redir +shadowsocks-libev-config +libmbedtls +stubby
 	URL:=no
-	TITLE:=VPN клиент для обработки запросов по внесению хостов в белый список.
+	TITLE:=Forest Router Tool (FRT) - VPN client for whitelist hosts
 	PKGARCH:=all
 endef
-# +libstdcpp 
-define Package/kvas/description
-	Данный пакет позволяет осуществлять контроль и поддерживать в актуальном состоянии
-	защищенный список хостов или "Белый список". При обращении к любому хосту из
-	этого списка, весь трафик будет идти через любое VPN или через Shadowsocks соединение,
-	заранее настроенное на роутере.
+
+define Package/frt/description
+	Forest Router Tool (FRT). Maintains a protected whitelist of hosts.
+	Traffic to any host in the list is routed via VPN or Shadowsocks on the router.
 endef
 
 define Build/Prepare
@@ -32,26 +29,20 @@ endef
 define Build/Compile
 endef
 
-# Во время инсталляции задаем папку в которую будем
-# копировать наш скрипт и затем копируем его в эту папку
-define Package/kvas/install
+define Package/frt/install
 	$(INSTALL_DIR) $(1)/opt/etc/init.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_DIR) $(1)/opt/etc/ndm/netfilter.d
-	$(INSTALL_DIR) $(1)/opt/apps/kvas
+	$(INSTALL_DIR) $(1)/opt/apps/frt
 
-	$(INSTALL_BIN) opt/etc/ndm/fs.d/15-kvas-start.sh $(1)/opt/etc/ndm/fs.d
+	$(INSTALL_BIN) opt/etc/ndm/fs.d/15-frt-start.sh $(1)/opt/etc/ndm/fs.d
 	$(INSTALL_BIN) opt/etc/ndm/netfilter.d/100-dns-local $(1)/opt/etc/ndm/netfilter.d
 
-	$(INSTALL_BIN) opt/etc/init.d/S96kvas $(1)/opt/etc/init.d
-	$(CP) ./opt/. $(1)/opt/apps/kvas
+	$(INSTALL_BIN) opt/etc/init.d/S96frt $(1)/opt/etc/init.d
+	$(CP) ./opt/. $(1)/opt/apps/frt
 endef
 
-#---------------------------------------------------------------------
-# Скрипт создаем, который выполняется после инсталляции пакета
-# Задаем в кроне время обновления ip адресов хостов
-#---------------------------------------------------------------------
-define Package/kvas/postinst
+define Package/frt/postinst
 
 #!/bin/sh
 
@@ -60,36 +51,30 @@ NOCL="\033[m";
 
 print_line()(printf "%83s\n" | tr " " "=")
 
-chmod -R +x /opt/apps/kvas/bin/*
-# chmod -R +x /opt/apps/kvas/sbin/dnsmasq/*
-chmod -R +x /opt/apps/kvas/etc/init.d/*
-chmod -R +x /opt/apps/kvas/etc/ndm/*
+chmod -R +x /opt/apps/frt/bin/*
+chmod -R +x /opt/apps/frt/etc/init.d/*
+chmod -R +x /opt/apps/frt/etc/ndm/*
 
-ln -sf /opt/apps/kvas/bin/kvas /opt/bin/kvas
+ln -sf /opt/apps/frt/bin/frt /opt/bin/frt
 
-cp -f /opt/apps/kvas/etc/conf/kvas.conf /opt/etc/kvas.conf
-[ -f /opt/etc/kvas.list ] || cp -f /opt/apps/kvas/etc/conf/kvas.list /opt/etc/kvas.list
-mkdir -p /opt/etc/adblock /opt/etc/dnsmasq.d
-cp -f /opt/apps/kvas/etc/conf/adblock.sources /opt/etc/adblock/sources.list
-cp -f /opt/apps/kvas/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
+cp -f /opt/apps/frt/etc/conf/frt.conf /opt/etc/frt.conf
+[ -f /opt/etc/frt.list ] || cp -f /opt/apps/frt/etc/conf/frt.list /opt/etc/frt.list
+mkdir -p /opt/etc/dnsmasq.d
+cp -f /opt/apps/frt/etc/ndm/ndm /opt/apps/frt/bin/libs/ndm
 
-sed -i "s/\(APP_VERSION=\).*/\1$(PKG_VERSION)/; s/^,//; s/\,/ /g;" "/opt/etc/kvas.conf"
-sed -i "s/\(APP_RELEASE=\).*/\1$(PKG_RELEASE)/; s/^,//; s/\,/ /g;" "/opt/etc/kvas.conf"
+sed -i "s/\(APP_VERSION=\).*/\1$(PKG_VERSION)/; s/^,//; s/\,/ /g;" "/opt/etc/frt.conf"
+sed -i "s/\(APP_RELEASE=\).*/\1$(PKG_RELEASE)/; s/^,//; s/\,/ /g;" "/opt/etc/frt.conf"
 
 print_line
-echo -e "Для настройки пакета КВАС наберите \033[36mkvas setup\033[m"
+echo -e "Для настройки пакета FRT наберите \033[36mfrt setup\033[m"
 print_line
 
 endef
 
-#---------------------------------------------------------------------
-# Создаем скрипт, который выполняется при удалении пакета
-# Удаляем из крона запись об обновлении ip адресов
-#---------------------------------------------------------------------
-define Package/kvas/postrm
+define Package/frt/postrm
 
 #!/bin/sh
 
 endef
 
-$(eval $(call BuildPackage,kvas))
+$(eval $(call BuildPackage,frt))

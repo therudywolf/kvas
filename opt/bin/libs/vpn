@@ -1,12 +1,15 @@
 #!/bin/sh
 
-. /opt/apps/kvas/bin/libs/debug
-. /opt/apps/kvas/bin/libs/ndm
-. /opt/apps/kvas/bin/libs/adblock
-. /opt/apps/kvas/bin/libs/tags
-. /opt/apps/kvas/bin/libs/vless
+. /opt/apps/frt/bin/libs/debug
+. /opt/apps/frt/bin/libs/ndm
+. /opt/apps/frt/bin/libs/tags
+. /opt/apps/frt/bin/libs/vless
 
 MINUS=10
+
+# Stubs for removed AdGuard/Adblock (always disabled)
+cmd_ads_status() { echo "ОТКЛЮЧЕН"; }
+ads_list_hosts_update() { :; }
 
 # Убираем ошибки связанные с отсутствием /opt/etc/hosts
 [ -f /opt/etc/hosts ] || touch /opt/etc/hosts
@@ -53,14 +56,14 @@ update_iptables(){
 # Пересоздаем таблицу ipset для AdGuard Home и перезапускаем сервис
 refresh_adguard_ipset_table(){
 	ready "${prefix}Заполняем AdGuard таблицу данными из защищенного списка."
-	/opt/apps/kvas/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+	/opt/apps/frt/bin/main/adguard &>/dev/null && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 }
 
 update_ipset(){
 	stage="${1}"
 
 	ready "${prefix}Заполняем ipset таблицу данными из защищенного списка"
-	/opt/apps/kvas/bin/main/ipset &> /dev/null &
+	/opt/apps/frt/bin/main/ipset &> /dev/null &
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	if [ -f /opt/etc/init.d/S56dnsmasq ] ; then
@@ -84,7 +87,7 @@ update_adblock(){
 	if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
 			if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADBLOCK_HOSTS_FILE}" &> /dev/null; then
 				ready "${prefix}Обновляем данные списка блокировки рекламы."
-				/opt/apps/kvas/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
+				/opt/apps/frt/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 			fi
 	fi
 }
@@ -146,7 +149,7 @@ reset_all_connection(){
 #		refresh 	- режим обновления списка доменов при командах add/del/import
 #	    initd		- обновить время при установке пакета
 # ------------------------------------------------------------------------------------------
-cmd_kvas_init(){
+cmd_frt_init(){
 
 	stage="${1:-no}"
 	prefix=''
@@ -573,12 +576,12 @@ adguardhome_setup() {
 #	в случае установленного dnsmasq останавливаем его и архивируем
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
 		/opt/etc/init.d/S56dnsmasq status | grep -q alive && /opt/etc/init.d/S56dnsmasq stop &> /dev/null
-		mv -f /opt/etc/init.d/S56dnsmasq "${KVAS_BACKUP_PATH}"
+		mv -f /opt/etc/init.d/S56dnsmasq "${FRT_BACKUP_PATH}"
 	}
 #	в случае наличия сервиса dnscrypt_proxy2 останавливаем его и архивируем
 	[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && {
 		/opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
-		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${KVAS_BACKUP_PATH}"
+		mv -f /opt/etc/init.d/S09dnscrypt-proxy2 "${FRT_BACKUP_PATH}"
 	}
 
 	[ -f "${ADGUARDHOME_DEMON}" ] && ${ADGUARDHOME_DEMON} stop &> /dev/null
@@ -599,16 +602,16 @@ adguardhome_setup() {
 
 #	если файл сервис adguard в наличии то архивируем файл конфигурации
 	if [ -f "${ADGUARDHOME_DEMON}" ] && [ -f /opt/bin/AdGuardHome.yaml ]; then
-		cp /opt/bin/AdGuardHome.yaml "${KVAS_BACKUP_PATH}"/AdGuardHome.yaml
+		cp /opt/bin/AdGuardHome.yaml "${FRT_BACKUP_PATH}"/AdGuardHome.yaml
 	fi
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
 
 	if [ -f "${ADGUARDHOME_DEMON}" ] && ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #		если оригинальный, то архивируем его
-		mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
+		mv "${ADGUARDHOME_DEMON}" "${FRT_BACKUP_PATH}/S99adguardhome.origin"
 	fi
-	[ -f "/opt/apps/kvas/etc/init.d/S99adguard" ] && cp /opt/apps/kvas/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
+	[ -f "/opt/apps/frt/etc/init.d/S99adguard" ] && cp /opt/apps/frt/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 #	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
 	rm -f "${KVAS_START_FILE}"
 #	меняем dns в настройках ipset
@@ -652,39 +655,12 @@ get_adguardhome_ip_port() {
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Возвращаем статус AdGuard Home в качестве основного DNS сервера
+#	 Stub: AdGuard Home removed, DNS over TLS (stubby) used
 #
 # ------------------------------------------------------------------------------------------
 cmd_adguardhome_status() {
-	local local_ip=""
-	if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] ; then 
-		local_ip="[$(grep address /opt/etc/AdGuardHome/AdGuardHome.yaml | cut -d":" -f2) ]"
-	fi
-	ready "Сервис AdGuard Home ${local_ip}"
-	# Проверяем наличие исполняемого файла AdGuardHome
-
-	if [ -f /opt/bin/AdGuardHome ] ; then
-#		Проверяем наличие файла конфигурации AdGuardHome
-		if [ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && grep -q 'kvas.ipset' /opt/etc/AdGuardHome/AdGuardHome.yaml; then
-#			Проверяем наличие сервиса AdGuardHome
-			if [ -f "${ADGUARDHOME_DEMON}" ] ; then
-				if "${ADGUARDHOME_DEMON}" status | grep -q alive; then when_ok "ВКЛЮЧЕН"; else when_bad "ОТКЛЮЧЕН"; fi
-			else
-				when_bad "НУЖНО ПЕРЕУСТАНОВИТЬ"
-			fi
-		else
-			when_bad "НЕ НАСТРОЕН"
-		fi
-	else
-		local _dns_ip=$(get_config_value DNS_DEFAULT)
-		local _router_ip=$(get_router_ip)
-		if [ "${_dns_ip//[#:]*/}" = "${_router_ip//[#:]*/}" ] ; then 
-			when_bad "НЕ УСТАНОВЛЕН"
-		else
-			when_bad "ВНЕШНИЙ"
-		fi
-	fi
-
+	ready "AdGuard Home"
+	when_bad "ОТКЛЮЧЕН"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -714,8 +690,8 @@ check_port(){
 # ------------------------------------------------------------------------------------------
 adguardhome_check_config() {
 		# Проверяем наличие	архивной копии AdGuardHome
-		if [ -f "${KVAS_BACKUP_PATH}/AdGuardHome.yaml" ] && [ -f ${ADGUARDHOME_DEMON} ]; then
-			cp "${KVAS_BACKUP_PATH}/AdGuardHome.yaml" "${ADGUARDHOME_CONFIG}"
+		if [ -f "${FRT_BACKUP_PATH}/AdGuardHome.yaml" ] && [ -f ${ADGUARDHOME_DEMON} ]; then
+			cp "${FRT_BACKUP_PATH}/AdGuardHome.yaml" "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
 			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
@@ -734,10 +710,10 @@ adguardhome_check_config() {
 #				проверяем файл на оригинальность (без переделок ли он под квас)
 				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
 #					если оригинальный, то архивируем его
-					mv "${ADGUARDHOME_DEMON}" "${KVAS_BACKUP_PATH}/S99adguardhome.origin"
+					mv "${ADGUARDHOME_DEMON}" "${FRT_BACKUP_PATH}/S99adguardhome.origin"
 				fi
 
-				cp /opt/apps/kvas/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
+				cp /opt/apps/frt/etc/init.d/S99adguard  /opt/etc/init.d/S99adguardhome
 				cp /opt/bin/AdGuardHome.yaml "${ADGUARDHOME_CONFIG}"
 #				"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			fi
@@ -813,17 +789,17 @@ adguardhome_install_locally() {
 			[ -f /opt/etc/init.d/S09dnscrypt-proxy2 ] && /opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 
 			# обнуляем файлы конфигурации 
-			> /opt/etc/dnsmasq.d/kvas.dnsmasq
+			> /opt/etc/dnsmasq.d/frt.dnsmasq
 			> /opt/var/log/AdGuardHome.log
 
-			[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${KVAS_BACKUP_PATH}/hosts"
+			[ -f /opt/etc/hosts ] && cp /opt/etc/hosts "${FRT_BACKUP_PATH}/hosts"
 
 			opkg update &> /dev/null
 			opkg remove adguardhome-go --force-depends &> /dev/null
 			opkg install adguardhome-go --force-maintainer  &> /dev/null
 		} &> /dev/null && when_ok "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 
-		. /opt/apps/kvas/bin/libs/update
+		. /opt/apps/frt/bin/libs/update
 		cmd_adguard_update
 		adguardhome_check_config
 		adguardhome_setup
@@ -896,7 +872,7 @@ cmd_adguardhome_on() {
 			adguardhome_setup
 		fi
 	#	восстанавливаем /opt/etc/hosts
-		[ -f "${KVAS_BACKUP_PATH}/hosts" ] &&  cp -f "${KVAS_BACKUP_PATH}/hosts" /opt/etc/hosts
+		[ -f "${FRT_BACKUP_PATH}/hosts" ] &&  cp -f "${FRT_BACKUP_PATH}/hosts" /opt/etc/hosts
 
 		"${ADGUARDHOME_DEMON}" restart &> /dev/null	
 
@@ -914,7 +890,7 @@ cmd_adguardhome_off(){
 		${ADGUARDHOME_DEMON} stop &> /dev/null
 		kill -9 $(pgrep AdGuardHome) &> /dev/null	
 	}
-	[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${KVAS_BACKUP_PATH}/AdGuardHome.yaml"
+	[ -f "${ADGUARDHOME_CONFIG}" ] && mv -f "${ADGUARDHOME_CONFIG}" "${FRT_BACKUP_PATH}/AdGuardHome.yaml"
 	[ -f /opt/etc/init.d/S56dnsmasq ] && {
 		/opt/etc/init.d/S56dnsmasq stop &> /dev/null
 		kill -9 $(pgrep dnsmasq) &> /dev/null
@@ -923,7 +899,7 @@ cmd_adguardhome_off(){
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		kill -9 $(pgrep dnscrypt-proxy) &> /dev/null
 	}
-	cp /opt/apps/kvas/etc/init.d/S96kvas "${KVAS_START_FILE}"
+	cp /opt/apps/frt/etc/init.d/S96kvas "${KVAS_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
 	ip4__flush 'chain'
@@ -1329,7 +1305,7 @@ ipset_dns_change() {
 	dns_new=${1};
 	if echo "${dns_new}" | grep -qE ':|#'; then
 		_dns_clear=$(echo "${dns_new}" | tr '#' ':' )
-		sed -i "s/@[a-zA-Z0-9:.]*/@${_dns_clear}/" "/opt/apps/kvas/bin/main/ipset_domain"
+		sed -i "s/@[a-zA-Z0-9:.]*/@${_dns_clear}/" "/opt/apps/frt/bin/main/ipset_domain"
 	fi
 }
 
@@ -1341,7 +1317,7 @@ ipset_dns_change() {
 
 dnsmasq_install_wildcard_support(){
 	ready "Меняем dnsmasq на версию с поддержкой wildcard"
-	bin_path="/opt/apps/kvas/sbin/dnsmasq"
+	bin_path="/opt/apps/frt/sbin/dnsmasq"
 	chmod -R +x "${bin_path}"
 	arch=$(grep "arch" /opt/etc/entware_release | cut -f2 -d"=")
 	case "${arch}" in
@@ -1396,12 +1372,13 @@ dnsmasq_install(){
 
 		mv -f "${DNSMASQ_CONFIG}" "${DNSMASQ_CONFIG_BACKUP}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
 	fi
-	cp '/opt/apps/kvas/etc/conf/dnsmasq.conf' "${DNSMASQ_CONFIG}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
+	cp '/opt/apps/frt/etc/conf/dnsmasq.conf' "${DNSMASQ_CONFIG}" 1>/dev/null 2>"${ERROR_LOG_FILE}"
 	ready_status "${?}" 'Проблемы при замене в файле конфигурации dnsmasq'
 
 	# dnsmasq_install_wildcard_support
 
-	uplevel_dns=$(get_config_value DNS_DEFAULT)
+	uplevel_dns=$(get_config_value DNS_UPSTREAM)
+	[ -z "${uplevel_dns}" ] && uplevel_dns="127.0.0.1#5353"
 	local_ip=$(get_router_ip)
 	inface=$(get_inface_by_ip "${local_ip}")
 
@@ -1409,7 +1386,7 @@ dnsmasq_install(){
 	sed -i "s/@LOCAL_IP/${local_ip}/g; s/@INFACE/${inface}/g; s/@UPLEVEL_DNS/${uplevel_dns}/g;" /opt/etc/dnsmasq.conf 1> /dev/null 2> "${ERROR_LOG_FILE}"
 	ready_status "${?}" "Проблема при настройке файлов конфигурации dnsmasq"
 	# Если запуск функции был не при установке пакета Квас
-	[ -z "${is_install_stage}" ] && cmd_kvas_init "no"
+	[ -z "${is_install_stage}" ] && cmd_frt_init "no"
 
 }
 
@@ -1501,7 +1478,7 @@ cmd_dnsmasq_port_change() {
 			ready "Замена порта на ${port} в dnsmasq завершена"
 			sed -i "s/\(port=\).*/\1${port}/"  "${DNSMASQ_CONFIG}"
 			set_config_value DNSMASQ_PORT "${port}"
-			[ "${cmd}" = restart ] && cmd_kvas_init "no" &> /dev/null
+			[ "${cmd}" = restart ] && cmd_frt_init "no" &> /dev/null
 			[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 		fi
 	}
@@ -1542,9 +1519,10 @@ dns_show() {
 		DNS_IP_PORT=$(get_adguardhome_ip_port)
 	fi
 	dns=$(get_config_value DNS_DEFAULT)
-	dns_crypt=$(get_config_value DNS_CRYPT_PORT)
-	if  echo "${dns}" | grep -q "${dns_crypt}" ; then
-		mess="${mess} (dnscrypt_proxy2)"
+	stubby_port=$(get_config_value STUBBY_PORT)
+	[ -z "${stubby_port}" ] && stubby_port=5353
+	if [ "$(get_dns_crypt_status)" = on ]; then
+		mess="${mess} (DoT stubby)"
 	elif echo "${dns}" | grep -q "${DNS_IP_PORT}" ; then
 		mess="${mess} (AdGuard Home)"
 	else
@@ -1588,8 +1566,8 @@ cmd_vpn_status() {
 ndm_interface_change() {
 	inface_entware="${1}"; inface_cli="${2}"
 
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-	chmod +x /opt/apps/kvas/bin/libs/ndm
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/frt/bin/libs/ndm
+	chmod +x /opt/apps/frt/bin/libs/ndm
 
 	# Очистим сетевые правила (кроме IPSet),
 	# пока нам ещё доступно "старое" соединение
@@ -1606,8 +1584,8 @@ ndm_interface_change() {
 # ------------------------------------------------------------------------------------------
 ndm_gateway_change() {
 	addr_man="${1}"
-	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/kvas/bin/libs/ndm
-	chmod +x /opt/apps/kvas/bin/libs/ndm
+	cp /opt/apps/${APP_NAME}/etc/ndm/ndm /opt/apps/frt/bin/libs/ndm
+	chmod +x /opt/apps/frt/bin/libs/ndm
 	set_config_value "ADDR_MAN" "${addr_man}"
 
 }
@@ -1877,7 +1855,7 @@ shadowsocks_read_link(){
 #
 # ------------------------------------------------------------------------------------------
 cmd_shadowsocks_iptable_flush() {
-	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
+	if [ -f /opt/apps/frt/bin/libs/ndm ]; then
 		ready "Удаление правил iptables для shadowsocks завершено"
 		# возможно чистить цепочки и роутинг — лишнее
 		ip4__flush 'chain table' &>/dev/null
@@ -1894,7 +1872,7 @@ cmd_shadowsocks_iptable_flush() {
 cmd_shadowsocks_iptable_reset() {
 
 	ready "Переустановка iptables для shadowsocks завершена"
-	if [ -f /opt/apps/kvas/bin/libs/ndm ]; then
+	if [ -f /opt/apps/frt/bin/libs/ndm ]; then
 		local_ip=$(get_router_ip)
 		inface=$(get_inface_by_ip "${local_ip}")
 		proxy_port=$(get_config_value SSR_DNS_PORT)
@@ -2267,7 +2245,7 @@ cmd_manual_gateway_set() {
 		else
 			ndm_gateway_change ${addr_gateway}
 			switch_vpn_on "${_inface_gateway}" "Gateway"
-			cmd_kvas_init "update"
+			cmd_frt_init "update"
 		fi
 
 }
@@ -2356,7 +2334,7 @@ switch_vpn_on(){
 			vpn_on "${inface_entware}"
 		fi
 	fi
-	[ "${is_install_stage}" = no ] && cmd_kvas_init "no" &> /dev/null
+	[ "${is_install_stage}" = no ] && cmd_frt_init "no" &> /dev/null
 
 	#------------------------------------------------------
 	# Если есть подключенные гостевые сети
@@ -2373,7 +2351,7 @@ switch_vpn_on(){
 
 	[ -f /opt/etc/cron.5mins/check_vpn ] || {
 		ready "Устанавливаем проверку зависания VPN соединения в cron."
-		ln -s /opt/apps/kvas/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
+		ln -s /opt/apps/frt/bin/main/check_vpn /opt/etc/cron.5mins/check_vpn && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 	}
 
 
@@ -2477,37 +2455,23 @@ cmd_update_list() {
 #
 # ------------------------------------------------------------------------------------------
 dns_crypt_port_change() {
-
 	port_new=${1}; cmd=${2:-restart}
-	ready "Замена локального порта на ${port_new} в dnscrypt_proxy2 завершена"
+	ready "Замена порта stubby на ${port_new}"
 
-	set_config_value DNS_CRYPT_PORT "${port_new}"
-	sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${port_new}']/g" "${DNSCRYPT_CONFIG}" &> /dev/null
-	sed -i "s/\(@.*\)\(:[0-9]\{2,6\}\)/\1:${port_new} /g" '/opt/apps/kvas/bin/main/ipset_domain' &> /dev/null
-
-	[ -f /opt/apps/kvas/bin/main/dnsmasq ] && {
-		# server_crypt_1="echo \"server=\/\${host}\/${LOCALHOST_IP}#${port_new}\" >> \/opt\/etc\/dnsmasq.d\/kvas.dnsmasq"
-		sed -i '/echo \"server=/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-		sed -i '/^$/N;/^\n$/D' /opt/apps/kvas/bin/main/dnsmasq
-		# sed -i "s/\(echo \"ipset=\/\$.*\)/\1\n\t${server_crypt_1}/" '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-	}
-
-
-	if [ "${cmd}" = restart ]; then
-		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" restart &> /dev/null
-		if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-			if [ -f "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" ]; then
-				cp "${KVAS_BACKUP_PATH}/S09dnscrypt-proxy2" /opt/etc/init.d/S09dnscrypt-proxy2
-			else
-				error "Нарушена работа пакета, файл /opt/etc/init.d/S09dnscrypt-proxy2 отсутствует"
-				exit 1
-			fi
-		fi
-		/opt/etc/init.d/S09dnscrypt-proxy2 restart &> /dev/null
-	else
-		cmd_dnsmasq_dns_change "${LOCALHOST_IP}#${port_new}" &> /dev/null
+	set_config_value STUBBY_PORT "${port_new}"
+	set_config_value DNS_UPSTREAM "127.0.0.1#${port_new}"
+	if [ -f /opt/etc/stubby/stubby.yml ]; then
+		sed -i "s/127.0.0.1@[0-9]\{2,5\}/127.0.0.1@${port_new}/g" /opt/etc/stubby/stubby.yml
 	fi
 
+	if [ "${cmd}" = restart ]; then
+		dnsmasq_install
+		cmd_frt_init 'no'
+		[ -f /opt/etc/init.d/S61stubby ] && /opt/etc/init.d/S61stubby restart 2>/dev/null || true
+	else
+		dnsmasq_install
+		cmd_frt_init 'no'
+	fi
 	[ $? = 0 ] && when_alert "УСПЕШНО" || when_bad "С ОШИБКОЙ"
 }
 
@@ -2521,10 +2485,10 @@ dns_crypt_port_change() {
 refresh_dnsmasq_ipset_table(){
 
 		ready "${prefix}Заполняем dnsmasq таблицу данными из защищенного списка"
-		if /opt/apps/kvas/bin/main/dnsmasq  ; then #&>/dev/null
+		if /opt/apps/frt/bin/main/dnsmasq  ; then #&>/dev/null
 			when_ok "УСПЕШНО"
 		else
-			if /opt/apps/kvas/bin/main/dnsmasq  ; then
+			if /opt/apps/frt/bin/main/dnsmasq  ; then
 				when_ok "УСПЕШНО"
 			else
 				when_bad "ОШИБКА"
@@ -2550,8 +2514,9 @@ refresh_dnsmasq_ipset_table(){
 #
 # ------------------------------------------------------------------------------------------
 get_dns_crypt_status() {
-	# отправляется ли DNS сайтов вне списка в DNSCrypt
-	if grep -Fq "server=127.0.0.1#$(get_config_value DNS_CRYPT_PORT)" "${DNSMASQ_CONFIG}" ; then
+	stubby_port=$(get_config_value STUBBY_PORT)
+	[ -z "${stubby_port}" ] && stubby_port=5353
+	if grep -Fq "server=127.0.0.1#${stubby_port}" "${DNSMASQ_CONFIG}" ; then
 		echo on
 	else
 		echo off
@@ -2560,105 +2525,43 @@ get_dns_crypt_status() {
 
 # ------------------------------------------------------------------------------------------
 #
-#	 Устанавливаем с нуля dnscrypt_proxy2
+#	 DNS over TLS: stubby config and start (replaces dnscrypt)
 #
 # ------------------------------------------------------------------------------------------
 dns_crypt_install() {
-	is_install_stage="${1}"
-#	В случае наличия архива файла запуска сервиса dnscrypt_proxy2
-	if [ -f /opt/etc/init.d/K09dnscrypt-proxy2 ]; then
-		#warning "Обнаружен архив файла S09dnscrypt-proxy2."
-		ready "Восстанавливаем S09dnscrypt-proxy2 из архива..."
-#		реанимируем его из архива
-		cp /opt/etc/init.d/K09dnscrypt-proxy2 /opt/etc/init.d/S09dnscrypt-proxy2 1> /dev/null 2> "${ERROR_LOG_FILE}"
-		ready_status "${?}" "Ошибка при восстановлении S09dnscrypt-proxy2 из архива"
+	ready "Настраиваем DNS over TLS (stubby)..."
+	mkdir -p /opt/etc/stubby
+	if [ -f /opt/apps/frt/etc/conf/stubby.yml ]; then
+		cp -f /opt/apps/frt/etc/conf/stubby.yml /opt/etc/stubby/stubby.yml
+		when_ok "Конфиг stubby установлен"
 	else
-		# Если запуск функции был не при установке пакета Квас
-			if [ -z "${is_install_stage}" ]; then
-		#		при его отсутствии - устанавливаем пакет
-				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-					ready "Устанавливаем пакет dnscrypt-proxy2..."
-					opkg update &> /dev/null
-					opkg remove dnscrypt-proxy2 --force-depends 1> /dev/null 2> "${ERROR_LOG_FILE}"
-					opkg install dnscrypt-proxy2 --force-maintainer 1> /dev/null 2> "${ERROR_LOG_FILE}"
-					when_error "${?}" "Ошибка при установке пакета dnsmasq"
-				fi
-			else
-				if ! [ -f /opt/etc/init.d/S09dnscrypt-proxy2 ]; then
-	#				Если вызвана функция из postinst
-					error "Пакет dnscrypt-proxy2 был установлен с ошибками или поврежден!"
-					error "Файл запуска пакета /opt/etc/init.d/S09dnscrypt-proxy2 отсутствует!"
-					warning "Удалите Квас и затем переустановите пакет dnscrypt-proxy2"
-					exit 1
-				fi
-			fi
-
-
+		when_bad "Конфиг stubby не найден"
 	fi
-#	Если dnscrypt_proxy2 запущен, то останавливаем его,
-#	так как необходимо его предварительно настроить
-	if /opt/etc/init.d/S09dnscrypt-proxy2 status | grep -q alive ; then
-		ready "Останавливаем службу dnscrypt-proxy2..."
-		/opt/etc/init.d/S09dnscrypt-proxy2 stop 1> /dev/null 2> "${ERROR_LOG_FILE}"
-		ready_status "${?}" "Проблема при остановке службы dnscrypt-proxy2"
-	fi
-
-	if [ -f "${DNSCRYPT_CONFIG}" ]; then
-		config__backup_as_opkg_if_not_exist "${DNSCRYPT_CONFIG}"
-
-		cp -f "${DNSCRYPT_CONFIG}" "${DNSCRYPT_CONFIG_BACKUP}"
-	elif [ -f "${DNSCRYPT_CONFIG_BACKUP}" ]; then
-		cp "${DNSCRYPT_CONFIG_BACKUP}" "${DNSCRYPT_CONFIG}"
+	if [ -f /opt/etc/init.d/S61stubby ] || command -v stubby >/dev/null 2>&1; then
+		[ -f /opt/etc/init.d/S61stubby ] && /opt/etc/init.d/S61stubby restart 2>/dev/null || true
+		when_ok "Stubby (DoT) готов"
 	else
-		config__restore_from_opkg "${DNSCRYPT_CONFIG}"
+		when_bad "Stubby не установлен (opkg install stubby). dnsmasq будет использовать server=127.0.0.1#5353 при установке stubby."
 	fi
-
-#	Настраиваем сервис
-	ready "Настраиваем dnscrypt-proxy2..."
-	cmd_dns_crypt_on 1> /dev/null 2> "${ERROR_LOG_FILE}"
-	ready_status "${?}" "Проблема при активации шифрования DNS трафика"
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Включаем работу блока шифрования dns при помощи dnscrypt_proxy2
+#	 Включаем DNS over TLS (stubby)
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_on() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-
-		crypt_port=$(get_config_value DNS_CRYPT_PORT)
+		stubby_port=$(get_config_value STUBBY_PORT)
+		[ -z "${stubby_port}" ] && stubby_port=5353
 		if [ "$(get_dns_crypt_status)" = on ]; then
-			ready "Шифрование DNS уже";	when_ok "ПОДКЛЮЧЕНО"
+			ready "DoT (stubby) уже"; when_ok "ПОДКЛЮЧЕНО"
 		else
-			dns_crypt_port=$(get_config_value DNS_CRYPT_PORT)
-			ready "Шифрование DNS"
-			{
-				# кэш
-				sed -i "s/\(^cache.=.\).*$/\1true/g"           '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^cache_min_ttl.=.\).*$/\15/g"      '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^cache_max_ttl.=.\).*$/\1129600/g" '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^cache_neg_min_ttl.=.\).*$/\11/g"  '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^cache_neg_max_ttl.=.\).*$/\11/g"  '/opt/etc/dnscrypt-proxy.toml'
-				# требование безопасности к серверам
-				sed -i "s/\(^require_dnssec.=.\).*$/\1true/g" '/opt/etc/dnscrypt-proxy.toml'
-				# пока нет поддержки IPv6
-				sed -i "s/\(^block_ipv6.=.\).*$/\1true/g"    '/opt/etc/dnscrypt-proxy.toml'
-				sed -i "s/\(^ipv6_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				# более тяжёлые для роутера
-				sed -i "s/^[# ]\{0,1\}[ ]\{0,1\}\(doh_servers.=.\).*$/\1false/g" '/opt/etc/dnscrypt-proxy.toml'
-				# слушаем запросы только с роутера
-				sed -i "s/\(^listen_addresses.=.\).*$/\1['127.0.0.1:${crypt_port}'.*]/g" "${DNSCRYPT_CONFIG}" &> /dev/null
-				# в идеале выбрать быстрые для РФ без DoH и IPv6, пока просто динамические
-				sed -i "s/^\(server_names =.*\)/# \1/g" '/opt/etc/dnscrypt-proxy.toml'
-
-				# разрешаем ECH
-				sed -i 's/.*\(filter-rr.*\)/# \1/' /opt/etc/dnsmasq.conf
-
-				dns_crypt_port_change "${dns_crypt_port}" restart
-
-				# множество конфигов должно обновиться и службы перезапуститься
-				cmd_kvas_init 'no'
-			} 1> /dev/null 2> "${ERROR_LOG_FILE}"
+			ready "Включаем DNS over TLS (stubby)"
+			dns_crypt_install
+			set_config_value DNS_UPSTREAM "127.0.0.1#${stubby_port}"
+			dnsmasq_install
+			[ -f /opt/etc/init.d/S61stubby ] && /opt/etc/init.d/S61stubby start 2>/dev/null || true
+			cmd_frt_init 'no'
 			ready_status "${?}" "Произошла непредвиденная ошибка." "ПОДКЛЮЧЕНО"
 		fi
 	}
@@ -2670,38 +2573,26 @@ cmd_dns_crypt_on() {
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_off() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
-
-		ready "Шифрование DNS"
-		{
-			crypt_port=$(get_config_value DNS_CRYPT_PORT)
-			static_dns=$(get_config_value DNS_STATIC_1)
-
-			sed -i "s/\(^server=\)${LOCALHOST_IP}#${crypt_port}/\1${static_dns}/" /opt/etc/dnsmasq.conf
-			sed -i 's/.*\(filter-rr.*\)/\1/' /opt/etc/dnsmasq.conf
-
-			sed -i '/echo \"server=/d' '/opt/apps/kvas/bin/main/dnsmasq' &> /dev/null
-			local server_echo="echo \"server=\/\$\{host\}\/${LOCALHOST_IP}#${crypt_port}\" >> \"\$\{ipset_file\}\""
-			sed -i 's/\(done.*\)/\t'"${server_echo}"'\n\n\1/g' '/opt/apps/kvas/bin/main/dnsmasq'
-
-			rm "${DNSMASQ_IPSET_HOSTS}"
-
-			set_config_value DNS_DEFAULT "${static_dns}#53"
-
-			# множество конфигов должно обновиться и службы перезапуститься
-			cmd_kvas_init 'no'
-		} 1> /dev/null 2> "${ERROR_LOG_FILE}"
+		ready "Выключаем DoT (stubby)"
+		stubby_port=$(get_config_value STUBBY_PORT)
+		[ -z "${stubby_port}" ] && stubby_port=5353
+		static_dns=$(get_config_value DNS_STATIC_1)
+		[ -z "${static_dns}" ] && static_dns=9.9.9.9
+		set_config_value DNS_UPSTREAM "${static_dns}"
+		dnsmasq_install
+		cmd_frt_init 'no'
 		ready_status "${?}" "Произошла непредвиденная ошибка." "ОТКЛЮЧЕНО"
 	}
 }
 # ------------------------------------------------------------------------------------------
 #
-#	 Выводим статус блока шифрования dns при помощи dnscrypt_proxy2
+#	 Выводим статус DoT (stubby)
 #
 # ------------------------------------------------------------------------------------------
 cmd_dns_crypt_status_show() {
 	exit_when_adguard_on status; [ "${status}" = 0 ] && {
 
-		ready "Шифрование DNS"
+		ready "DoT (stubby)"
 		if [ "$(get_dns_crypt_status)" = on ]; then
 			when_ok "ПОДКЛЮЧЕНО"
 		else
@@ -2750,7 +2641,7 @@ test_host() {
 add_host_to_adguard(){
 	clear_host="${1}"
 	#   AdGuardHome обработка
-	echo "${_host}" >> "${KVAS_LIST_FILE}"
+	echo "${_host}" >> "${FRT_LIST_FILE}"
 	[ -f "${ADGUARD_IPSET_FILE}" ] && cat < "${ADGUARD_IPSET_FILE}" | grep -q "${clear_host}" \
 	 		|| echo "${clear_host}/${IPSET_TABLE_NAME}" >> "${ADGUARD_IPSET_FILE}"
 	if echo "${host}" | grep -q '\*' ; then
@@ -2808,7 +2699,7 @@ host_add() {
 	fi
 
 	ready "Добавляем ${YELLOW}${_host}${NOCL} в защищенный список..."
-	echo "${_host}" >> "${KVAS_LIST_FILE}"
+	echo "${_host}" >> "${FRT_LIST_FILE}"
 	[ $? = 0 ] && when_ok "ДОБАВЛЕН" || when_bad "НЕ ДОБАВЛЕН"
 
 #	если включен блокировщик рекламы
@@ -2816,7 +2707,7 @@ host_add() {
 		ads_list_hosts_update &> /dev/null
 	fi
 
-	[ "${reset}" = 'yes' ] && cmd_kvas_init  &> /dev/null
+	[ "${reset}" = 'yes' ] && cmd_frt_init  &> /dev/null
 
 	[ -f /opt/etc/AdGuardHome/AdGuardHome.yaml ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН && add_host_to_adguard "${clear_host}" &> /dev/null
 
@@ -2913,12 +2804,12 @@ cmd_add_one_host() {
 			fi
 		else
 			# проверка на наличие домена в списке защиты доменов
-			if cat < "${KVAS_LIST_FILE}" | grep -qE "^${clear_host}" ; then
+			if cat < "${FRT_LIST_FILE}" | grep -qE "^${clear_host}" ; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в защищенном списке!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"
 					print_line
-					sed -i "/^${clear_host}$/d" "${KVAS_LIST_FILE}"
+					grep -v -F -x -- "${clear_host}" "${FRT_LIST_FILE}" > "${FRT_LIST_FILE}.tmp" && mv "${FRT_LIST_FILE}.tmp" "${FRT_LIST_FILE}"
 
 					if [ "${wild}" = import ]; then
 						host_add "${host}" "${reset}" "${wild}" | grep -q "ДОБАВЛЕН" && echo "1"
@@ -2964,20 +2855,13 @@ cmd_del_one_host() {
 		return 0
 	}
 
-	if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
+	if grep -q -F -x -- "${host_}" "${FRT_LIST_FILE}" ; then
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
-		sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
+		grep -v -F -x -- "${host_}" "${FRT_LIST_FILE}" > "${FRT_LIST_FILE}.tmp" && mv "${FRT_LIST_FILE}.tmp" "${FRT_LIST_FILE}"
 
-		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
-		cmd_kvas_init  &> /dev/null
+		cmd_adguardhome_status | grep -q ВКЛЮЧЕН && [ -f "${ADGUARD_IPSET_FILE}" ] && grep -v -F -x -- "${host_}" "${ADGUARD_IPSET_FILE}" > "${ADGUARD_IPSET_FILE}.tmp" && mv "${ADGUARD_IPSET_FILE}.tmp" "${ADGUARD_IPSET_FILE}"
+		cmd_frt_init  &> /dev/null
 		[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
-
-		# если включен блокировщик рекламы
-		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка блокировки рекламы..."
-			/opt/apps/kvas/bin/main/adblock &> /dev/null
-			[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
-		fi
 
 		if echo "${host_}" | grep -qE -- "$(get_regexp_ip_or_range)" ; then
 			# если строка IP, диапазон или маска
@@ -3013,35 +2897,25 @@ del_multy_hosts() {
 	list_to_del="$(echo "$1" | sed 's/^[0-9]\{1,2\}\. //g')"
 
 	if [ -z "${list_to_del}" ]; then
-		error "Список пуст!" 
+		error "Список пуст!"
 		return 1
-	else
-		for host_ in ${list_to_del}; do
-			ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
-			if cat < "${KVAS_LIST_FILE}" | grep -qe "${host_}$" ; then
-				
-				if cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then 
-					sed -i "/${host_////\\/}/d" "${ADGUARD_IPSET_FILE}"
-				else 
-					sed -i "/${host_////\\/}/d" "${KVAS_LIST_FILE}"
-				fi
-				[ $? = 0 ] && when_ok "УДАЛЕН" || when_bad "НЕ УДАЛЕН"
-			else 
-				when_alert "НЕТ В СПИСКЕ"
-			fi
-		done
-		#	если включен блокировщик рекламы
-		if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
-			ready "Удаляем имена выше из списка блокировки рекламы"
-			/opt/apps/kvas/bin/main/adblock &> /dev/null
-			[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
-		fi
-		print_line
-		ready "Перегружаем все правила конфигурации iptables и ipset"
-		cmd_kvas_init  &> /dev/null
-		[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 	fi
 
+	_tmp_rm=$(mktemp)
+	printf '%s\n' ${list_to_del} > "${_tmp_rm}"
+	for host_ in ${list_to_del}; do
+		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
+		grep -q -F -x -- "${host_}" "${FRT_LIST_FILE}" && when_ok "УДАЛЕН" || when_alert "НЕТ В СПИСКЕ"
+	done
+	grep -v -F -f "${_tmp_rm}" "${FRT_LIST_FILE}" > "${FRT_LIST_FILE}.tmp" && mv "${FRT_LIST_FILE}.tmp" "${FRT_LIST_FILE}"
+	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН && [ -f "${ADGUARD_IPSET_FILE}" ]; then
+		grep -v -F -f "${_tmp_rm}" "${ADGUARD_IPSET_FILE}" > "${ADGUARD_IPSET_FILE}.tmp" && mv "${ADGUARD_IPSET_FILE}.tmp" "${ADGUARD_IPSET_FILE}"
+	fi
+	rm -f "${_tmp_rm}"
+	print_line
+	ready "Перегружаем все правила конфигурации iptables и ipset"
+	cmd_frt_init  &> /dev/null
+	[ $? = 0 ] && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -3050,16 +2924,16 @@ del_multy_hosts() {
 # ------------------------------------------------------------------------------------------
 
 cmd_clear_list() {
-	if ! [ -f "${KVAS_LIST_FILE}" ]; then
+	if ! [ -f "${FRT_LIST_FILE}" ]; then
 		error 'Списочный файл не существует!'
 		exit 1
 	fi
-	#if [ "$(rec_in_file "${KVAS_LIST_FILE}")" = '0' ]; then
+	#if [ "$(rec_in_file "${FRT_LIST_FILE}")" = '0' ]; then
 	# Предыдущий код закомментирован выше. Сортировать и чистить /opt/etc/kvas.list 
 	# (который итак упорядочен и отфильтрован, это же не пользовательские данные) 
 	# только для проверки на пустоту — крайне затратная операция при большом размере.
 	# Условность для ускорения: если есть IP или доменное имя, то должна быть точка.
-	if ! grep -Fq '.' "${KVAS_LIST_FILE}"; then
+	if ! grep -Fq '.' "${FRT_LIST_FILE}"; then
 		error 'Защищённый список уже пуст.'
 		return
 	fi
@@ -3113,7 +2987,7 @@ cmd_clear_list() {
 				echo -n "${lines_cache}" >>"${tmp_file}"
 				lines_cache=''
 			fi
-		done <"${KVAS_LIST_FILE}"
+		done <"${FRT_LIST_FILE}"
 		echo -n 'удалено '
 		if [ -n "${lines_cache}" ]; then
 			echo -n "${lines_cache}" >>"${tmp_file}"
@@ -3121,9 +2995,9 @@ cmd_clear_list() {
 		echo "${deleted_count}."
 
 		echo -n 'Предыдущий защищённый список сохранён в '
-		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-		mv "${tmp_file}" "${KVAS_LIST_FILE}"
-		echo "${KVAS_LIST_FILE_BACKUP}"
+		mv -f "${FRT_LIST_FILE}" "${FRT_LIST_FILE_BACKUP}"
+		mv "${tmp_file}" "${FRT_LIST_FILE}"
+		echo "${FRT_LIST_FILE_BACKUP}"
 
 		# из списка были вычищены лишь IP, не требуются
 		# refresh_dnsmasq_ipset_table или refresh_adguard_ipset_table
@@ -3153,15 +3027,15 @@ cmd_clear_list() {
 		ready "${submessage}..."
 		log_warning "${submessage}"
 
-		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
+		mv -f "${FRT_LIST_FILE}" "${FRT_LIST_FILE_BACKUP}"
 		rm -f "${ADGUARD_IPSET_FILE}"
-		touch "${KVAS_LIST_FILE}"
+		touch "${FRT_LIST_FILE}"
 
-		cmd_kvas_init 'update' &> /dev/null
+		cmd_frt_init 'update' &> /dev/null
 		[ $? = 0 ] && when_ok 'ОЧИЩЕН' || when_bad 'ОШИБКА'
 
 		print_line
-		warning "Предыдущий защищённый список был сохранён в файл ${KVAS_LIST_FILE_BACKUP}"
+		warning "Предыдущий защищённый список был сохранён в файл ${FRT_LIST_FILE_BACKUP}"
 	fi
 }
 
@@ -3223,7 +3097,7 @@ cmd_import_hosts() {
 
 		#sort -o не поддерживается, поэтому через временный файл
 		local tmp_file='/tmp/kvas_sorted_list.txt'
-		cp -f "${KVAS_LIST_FILE}" "${tmp_file}"
+		cp -f "${FRT_LIST_FILE}" "${tmp_file}"
 
 		echo -n 'Импортируем IP в список защиты..'
 		local readed_count=0
@@ -3259,11 +3133,11 @@ cmd_import_hosts() {
 		echo "${added_count}."
 
 		echo -n 'Предыдущий защищённый список сохранён в '
-		mv -f "${KVAS_LIST_FILE}" "${KVAS_LIST_FILE_BACKUP}"
-		echo "${KVAS_LIST_FILE_BACKUP}"
+		mv -f "${FRT_LIST_FILE}" "${FRT_LIST_FILE_BACKUP}"
+		echo "${FRT_LIST_FILE_BACKUP}"
 
 		echo -n 'Сортируем список защиты...'
-		sort "${tmp_file}" >"${KVAS_LIST_FILE}"
+		sort "${tmp_file}" >"${FRT_LIST_FILE}"
 		rm -f "${tmp_file}"
 		echo 'сделано.'
 
@@ -3276,7 +3150,7 @@ cmd_import_hosts() {
 	# изначальный код без изменений
 	ready 'Импортируем хосты в список защищаемых доменов...'
 	clear_file_content "${user_list}"
-	#clear_file_content "${KVAS_LIST_FILE}"
+	#clear_file_content "${FRT_LIST_FILE}"
 
 	hosts_to_add_ubl=''
 	hosts_repeated_ubl=''
@@ -3301,15 +3175,15 @@ cmd_import_hosts() {
 
 	# добавляем хосты в файл списочный
 	_hosts_to_add_ubl=$(echo -e "${hosts_to_add_ubl}" | sed '/^$/d; /^[-+.]/!s/\(.*\)/\1/')
-	echo -e "${_hosts_to_add_ubl}" >> "${KVAS_LIST_FILE}"
-	clear_file_content "${KVAS_LIST_FILE}"
+	echo -e "${_hosts_to_add_ubl}" >> "${FRT_LIST_FILE}"
+	clear_file_content "${FRT_LIST_FILE}"
 
 	# если включен блокировщик рекламы
 	if cmd_ads_status | grep -q ВКЛЮЧЕН ; then
 		ads_list_hosts_update &> /dev/null
 	fi
 
-	cmd_kvas_init  "update" &> /dev/null
+	cmd_frt_init  "update" &> /dev/null
 	[ $? = 0 ] && when_ok "УСПЕШНО" || when_bad "ОШИБКА"
 
 	num_not_added=$(rec_in_var "${hosts_not_added}")
@@ -3358,12 +3232,12 @@ cmd_import_hosts() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_export_hosts() {
-	HOSTS_LIST=$(cat < "${KVAS_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
+	HOSTS_LIST=$(cat < "${FRT_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
 	backup_name=${1}
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
-		error "Сохраняем архив в файл ${KVAS_LIST_FILE_BACKUP}"
-		backup_name=${KVAS_LIST_FILE_BACKUP}
+		error "Сохраняем архив в файл ${FRT_LIST_FILE_BACKUP}"
+		backup_name=${FRT_LIST_FILE_BACKUP}
 	else
 		mkdir -p "$(dirname "${backup_name}")" && touch "${backup_name}" &> /dev/null
 	fi
@@ -3399,7 +3273,7 @@ add_tag_section_to_protect_list() {
 		local exist_into_list=""
 
 		while IFS= read -r domain; do
-			grep -q "$domain" "${KVAS_LIST_FILE}" || exist_into_list="${exist_into_list}$(echo "${domain}\n" | sed 's/[\^]//; s/[\$]//')"
+			grep -q "$domain" "${FRT_LIST_FILE}" || exist_into_list="${exist_into_list}$(echo "${domain}\n" | sed 's/[\^]//; s/[\$]//')"
 		done <<EOF
 $grep_list_to_add
 EOF
@@ -3441,7 +3315,7 @@ del_tag_section_to_protect_list() {
 		domains=$(get_tag_domain_list "${tag_selected}")
 	fi
 	grep_list_to_del=$(echo -e "${domains}" | sed '/^$/d' | sort -u | sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed 's/\(.*\)/^\1$/g' )
-	exist_into_list=$(grep -oE "${grep_list_to_del}" "${KVAS_LIST_FILE}" | sed = | sed 'N;s/\n/. /g')
+	exist_into_list=$(grep -oE "${grep_list_to_del}" "${FRT_LIST_FILE}" | sed = | sed 'N;s/\n/. /g')
 	
 	if [ -n "${exist_into_list}" ] ; then
 		echo -e "${exist_into_list}"
@@ -3468,23 +3342,23 @@ del_tag_section_to_protect_list() {
 print_host_list(){
 	warning "Защищенный список содержит ${YELLOW}${num_plus}${GREEN} записей:"
 	print_line
-	clear_content "${KVAS_LIST_FILE}"
+	clear_content "${FRT_LIST_FILE}"
 }
 
 cmd_show_list() {
 
-	if [ -f "${KVAS_LIST_FILE}" ]; then
-		num_plus=$(rec_in_file "${KVAS_LIST_FILE}")
+	if [ -f "${FRT_LIST_FILE}" ]; then
+		num_plus=$(rec_in_file "${FRT_LIST_FILE}")
 		if [ "${num_plus}" -eq 0 ]; then
 			echo -e "${RED}Защищенный список пуст!${NOCL}"
 #			Если список хостов пуст, то проверяем есть ли архивная копия
-			if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
+			if [ -f "${FRT_LIST_FILE_BACKUP}" ] ; then
 				print_line
 				warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива или нет [Y/N]?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
+					cp "${FRT_LIST_FILE_BACKUP}" "${FRT_LIST_FILE}"
 					warning "Защищенный список восстановлен из архивной копии."
 					print_line
 					print_host_list
@@ -3501,12 +3375,12 @@ cmd_show_list() {
 		fi
 	else
 #		Если список хостов не существует, то проверяем, есть ли архивная копия
-		if [ -f "${KVAS_LIST_FILE_BACKUP}" ] ; then
+		if [ -f "${FRT_LIST_FILE_BACKUP}" ] ; then
 			warning "Обнаружена архивная копия защищенного списка!"
 				answer=''; read_ynq_timer "Восстановить данные из архива (Y) или нет (N)?" answer Y 10
 				if [ "${answer}" = q ] ; then exit_q; print_line; exit 1; fi
 				if echo "${answer}" | grep -qi y ; then
-					cp "${KVAS_LIST_FILE_BACKUP}" "${KVAS_LIST_FILE}"
+					cp "${FRT_LIST_FILE_BACKUP}" "${FRT_LIST_FILE}"
 					warning "Защищенный список восстановлен из архивной копии."
 					print_line
 					print_host_list

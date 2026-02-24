@@ -56,8 +56,29 @@ make_tools_and_app(){
         
         mkdir -p /home/master/${app_name}/packages/
         cp ${build_path}/bin/targets/aarch-*/generic-glibc/packages/${app_name}.*.ipk /home/master/${app_name}/packages/
+        [ -d "${OUTPUT_DIR:-/output}" ] && cp ${build_path}/bin/targets/aarch-*/generic-glibc/packages/${app_name}.*.ipk "${OUTPUT_DIR:-/output}/"
     } || exit 1
 
+}
+
+# Сборка только пакета (без toolchain). Требует уже подготовленное дерево в build_path.
+make_app(){
+    {
+        cd ${build_path}
+        grep -q ${app_name} ${build_path}/.config || sudo echo "CONFIG_PACKAGE_${app_name}=m" >> ${build_path}/.config
+        grep -q ${app_name} ${build_path}/.feeds 2>/dev/null || sudo echo "src-link ${app_name} feeds/packages/${app_name}" >> ${build_path}/.feeds
+        ln -sf /home/master/${app_name} ${build_path}/feeds/packages/
+        ${build_path}/scripts/feeds update packages ${app_name}
+        ${build_path}/scripts/feeds install -a ${app_name}
+        make defconfig
+        make -j12 package/${app_name}/compile || {
+            make package/${app_name}/compile V=sc
+            exit 1
+        }
+        mkdir -p /home/master/${app_name}/packages/
+        cp ${build_path}/bin/targets/aarch-*/generic-glibc/packages/${app_name}.*.ipk /home/master/${app_name}/packages/
+        [ -d "${OUTPUT_DIR:-/output}" ] && cp ${build_path}/bin/targets/aarch-*/generic-glibc/packages/${app_name}.*.ipk "${OUTPUT_DIR:-/output}/"
+    } || exit 1
 }
 
 case "${command}" in 

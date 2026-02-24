@@ -18,14 +18,14 @@
 #
 # ------------------------------------------------------------------------------------------
 
-. /opt/apps/kvas/bin/libs/main
+. /opt/apps/frt/bin/libs/main
 
 XRAY=/opt/sbin/xray
 XRAY_INIT=/opt/etc/init.d/S24xray
 
-VLESS_CONFIG_FILE=/opt/etc/xray/kvas.json
-VLESS_CONFIG_ORIGINAL_FILE=/opt/apps/kvas/etc/conf/kvas.vless
-VLESS_CONFIG_FILE_BACKUP=${KVAS_BACKUP_PATH}/kvas.json
+VLESS_CONFIG_FILE=/opt/etc/xray/frt.json
+VLESS_CONFIG_ORIGINAL_FILE=/opt/apps/frt/etc/conf/frt.vless
+VLESS_CONFIG_FILE_BACKUP=${FRT_BACKUP_PATH}/frt.json
 
 PROXY_VLESS_DESC="Kvas-proxy-vless"
 PROXY_LOCAL_IP="127.0.0.1"
@@ -220,7 +220,7 @@ cmd_install_proxy_package() {
 
         # Создаем запись в файле /opt/etc/profile для продолжения установки Proxy клиента
         # DEBUG - восстановить после отладки
-        echo "kvas vless" >> /opt/etc/profile
+        echo "frt vless" >> /opt/etc/profile
         # echo "/opt/root/vless.dev" >> /opt/etc/profile
 
         #  Ставим пакет proxy в очередь на установку
@@ -275,7 +275,7 @@ create_proxy_interface(){
 
     # удаляем запись в файле /opt/etc/profile, чтобы прекратить повторную установку Proxy клиента
     # DEBUG - восстановить после отладки
-    sed -i '/kvas vless/d' /opt/etc/profile
+    sed -i '/frt vless/d' /opt/etc/profile
     # sed -i '/\/opt\/root\/vless.dev/d' /opt/etc/profile
 
 }
@@ -459,9 +459,9 @@ _cmd_install_vless_proxy(){
 
     # DEBUG - восстановить после отладки
     # cp "${VLESS_CONFIG_ORIGINAL_FILE}" "${VLESS_CONFIG_FILE}"
-    cp ~/kvas.vless "${VLESS_CONFIG_FILE}"
+    cp ~/frt.vless "${VLESS_CONFIG_FILE}"
 
-    . /opt/apps/kvas/.env
+    . /opt/apps/frt/.env
     vless_ln="${VLESS_LINK}"
 
     vless_link_parse "${vless_ln}" "${VLESS_CONFIG_FILE}"
@@ -472,7 +472,7 @@ _cmd_install_vless_proxy(){
 
     if echo "${check_xray_config}" | grep -q "Configuration OK." ; then
         # Запуск xray в случае, если конфигурация xray не содержит ошибок
-        ${XRAY_INIT} restart && kvas vpn set
+        ${XRAY_INIT} restart && frt vpn set
     else
         # В случае если есть ошибки выводим их в консоль
         echo -e "${BLUE}В файле ${VLESS_CONFIG_FILE} обнаружены следующие ошибки:${NOCL}"

@@ -12,7 +12,7 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 
-. /opt/apps/kvas/bin/libs/main
+. /opt/apps/frt/bin/libs/main
 
 IP_MYIP2='81.90.181.105'
 IP_IFCONFIG='34.160.111.145'
@@ -138,21 +138,21 @@ shadowsocks_debug() {
 #
 # ------------------------------------------------------------------------------------------
 kvas__show_list() {
-	if ! [ -f "${KVAS_LIST_FILE}" ] ; then
-		error "Не найден файл списка ${KVAS_LIST_FILE}"
+	if ! [ -f "${FRT_LIST_FILE}" ] ; then
+		error "Не найден файл списка ${FRT_LIST_FILE}"
 		return
 	fi
 
-	ready 'Количество записей' && when_ok "$(wc -l < ${KVAS_LIST_FILE})"
+	ready 'Количество записей' && when_ok "$(wc -l < ${FRT_LIST_FILE})"
 
-	if grep -Fq 'myip2.ru' "${KVAS_LIST_FILE}" ; then
+	if grep -Fq 'myip2.ru' "${FRT_LIST_FILE}" ; then
 		output='есть'
 	else
 		output='нет'
 	fi
 	ready 'myip2.ru' && when_ok "${output}"
 
-	if grep -Fq 'ifconfig.me' "${KVAS_LIST_FILE}" ; then
+	if grep -Fq 'ifconfig.me' "${FRT_LIST_FILE}" ; then
 		output='есть'
 	else
 		output='нет'
@@ -163,21 +163,21 @@ kvas__show_list() {
 	local count
 	local output
 
-	count=$(grep -Evc -- "${IP_FILTER}" "${KVAS_LIST_FILE}")
+	count=$(grep -Evc -- "${IP_FILTER}" "${FRT_LIST_FILE}")
 	if [ "$count" -eq 0 ]; then
 		output='Не используются домены.'
 	else
-		output=$(grep -Ev -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | grep -vE "${DOMAINS_EXCLUDE}" | head -n 6)
+		output=$(grep -Ev -- "${IP_FILTER}" "${FRT_LIST_FILE}" | grep -vE "${DOMAINS_EXCLUDE}" | head -n 6)
 
 		count="${count}:"
 	fi
 	echo_debug "Доменов ${count}" "${output}"
 
-	count=$(grep -Ec -- "${IP_FILTER}" "${KVAS_LIST_FILE}")
+	count=$(grep -Ec -- "${IP_FILTER}" "${FRT_LIST_FILE}")
 	if [ "$count" -eq 0 ]; then
 		output='Не используются IP или диапазоны.'
 	else
-		output=$(grep -E -- "${IP_FILTER}" "${KVAS_LIST_FILE}" | head -n 6)
+		output=$(grep -E -- "${IP_FILTER}" "${FRT_LIST_FILE}" | head -n 6)
 
 		count="${count}:"
 	fi
@@ -328,17 +328,16 @@ dnsmasq__is_working() {
 	elif ! "${DNSMASQ_DEMON}" status | grep -Fq 'alive' ; then
 		error 'Не запущен DNSMasq'
 
-	# DNSCrypt
-	elif ! [ -f "${DNSCRYPT_CONFIG}" ] ; then
-		error "Не найден файл настроек ${DNSCRYPT_CONFIG}"
-	elif ! command -v dnscrypt-proxy 2>&1 >/dev/null ; then
-		error 'Не найдена команда dnscrypt-proxy'
-	elif ! dnscrypt-proxy -config "${DNSCRYPT_CONFIG}" -check 2>&1 | grep -Fq 'successfully checked' ; then
-		error "Ошибка в файле конфигурации ${DNSCRYPT_CONFIG}"
-	elif ! [ -f "${DNSCRYPT_DEMON}" ] ; then
-		error "Не найден файл запуска ${DNSCRYPT_DEMON}"
-	elif ! "${DNSCRYPT_DEMON}" status | grep -Fq 'alive' ; then
-		error 'Не запущен DNSCrypt'
+	# DoT (stubby) — опционально; если dnsmasq настроен на stubby, проверяем
+	elif grep -q 'server=127.0.0.1#' "${DNSMASQ_CONFIG}" && [ -f /opt/etc/stubby/stubby.yml ] ; then
+		if ! [ -f /opt/etc/init.d/S61stubby ] ; then
+			error 'Stubby не установлен (opkg install stubby)'
+		elif ! /opt/etc/init.d/S61stubby status 2>/dev/null | grep -Fq 'alive' ; then
+			error 'Stubby (DoT) не запущен'
+		else
+			true
+			return
+		fi
 
 	else
 		true
@@ -428,15 +427,13 @@ cmd_debug_dnsmasq() {
 		ready 'DNS запросы списка передаются' && when_ok "${cached}"
 	fi
 
-	if grep -q '^cache = true' "${DNSCRYPT_CONFIG}" ; then
-		output='включен'
+	if [ -f /opt/etc/stubby/stubby.yml ] && grep -Fq 'server=127.0.0.1#' "${DNSMASQ_CONFIG}" ; then
+		ready 'DoT (stubby)' && when_ok 'включен'
+		command -v stubby >/dev/null 2>&1 && { ready 'Stubby версия' && when_ok "$(stubby -V 2>/dev/null || echo 'N/A')" ; }
+		echo_debug 'Stubby слушает:' "$(get_netstat 'stubby')"
 	else
-		output='отключен'
+		ready 'DoT (stubby)' && when_ok 'отключен'
 	fi
-	ready 'Кэш' && when_ok "${output}"
-
-	ready 'DNSCrypt версия' && when_ok "$(dnscrypt-proxy -version)"
-	echo_debug 'DNSCrypt слушает:' "$(get_netstat 'dnscrypt')"
 }
 
 cmd_debug_dns() {
@@ -487,7 +484,7 @@ cmd_ipset_flush() {
 	echo -n 'Заполнение IPSet IP из списка..'
 	local count=0
 	IFS=$'\n'
-	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/kvas.list'); do
+	for ip_or_range in $(grep -E -- "$(get_regexp_ip_or_range)" '/opt/etc/frt.list'); do
 		/opt/sbin/ipset -exist add "${IPSET_TABLE_NAME}" "${ip_or_range}" timeout 0
 
 		count=$((count + 1))
@@ -541,7 +538,7 @@ cmd_ipset_add() {
 
 cmd_ipset_refill() {
 	echo -n 'Переобход списка..'
-	. /opt/apps/kvas/bin/main/ipset_domain
+	. /opt/apps/frt/bin/main/ipset_domain
 	echo 'сделано.'
 
 	echo
@@ -623,7 +620,7 @@ cmd_ipset() {
 
 	count=$(/opt/sbin/ipset list "${IPSET_TABLE_NAME}" | grep -F 'timeout 0' | wc -l)
 	if [ "$count" -eq 0 ]; then
-		if grep -Eq -- "${IP_FILTER}" "${KVAS_LIST_FILE}"; then
+		if grep -Eq -- "${IP_FILTER}" "${FRT_LIST_FILE}"; then
 			output='Или нет корректных IP, диапазонов в kvas list;\nили проблема с их переносом'
 			if [ -z "${2}" ] ; then
 				# если вызывается как один из дебагов, то можно передать silent/short
@@ -648,14 +645,14 @@ cmd_ipset() {
 #	 Проверка наличия ip адресов хостов в таблице ipset
 #
 # ------------------------------------------------------------------------------------------
-kvas_list_ipset_check(){
+frt_list_ipset_check(){
 
 	echo "Проверка наличия ip адресов хостов в таблице ipset"
 
 	HAS_NO_ADDRESS=;NOT_IN_TABLE=;
 	sleep 2
 	local bad_ipset_list=""
-	if [ -f "${KVAS_LIST_FILE}" ]; then
+	if [ -f "${FRT_LIST_FILE}" ]; then
 		result_ipset=$(ipset list ${IPSET_TABLE_NAME} | grep -vEi '^[a-z]' | sort )
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
@@ -671,7 +668,7 @@ kvas_list_ipset_check(){
 					ips=${line}; ips=${ips//,/ }
 				else
 					ips=$(get_iplist_from_domain "${line}" "${dns_ip}" | tr '\n' ',')
-					ips="${ips::-1}"
+					ips="${ips%?}"
 				fi
 				if [ -z "$ips" ] || [ "${ips}" = 0.0.0.0 ]; then
                 	bad_ipset_list="$(printf "%s\n%s%s" "${bad_ipset_list}" "$(ready "${BLUE}${line}${NOCL}")" "$(when_alert "АДРЕСА НЕТ")")"
@@ -694,7 +691,7 @@ kvas_list_ipset_check(){
 
 				fi
 				
-			done < "${KVAS_LIST_FILE}"
+			done < "${FRT_LIST_FILE}"
 
 			# Удаляем пустые строки
 			bad_ipset_list=$(printf "%s" "${bad_ipset_list}" | sed '/^$/d')
@@ -710,10 +707,10 @@ kvas_list_ipset_check(){
 
 		else
 			error "Таблица защиты ${IPSET_TABLE_NAME} отсутствует в списке ipset"
-			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/kvas/bin/main/ipset${NOCL}, запустив его."
+			echo -e "Проверьте работу скрипта ${GREN}/opt/apps/frt/bin/main/ipset${NOCL}, запустив его."
 		fi
 	else
-		error "Отсутствует защищенный список /opt/etc/kvas.list"
+		error "Отсутствует защищенный список /opt/etc/frt.list"
 		echo -e "Добавьте домены в этот список командой ${GREN}kvas add <domain.ru>${NOCL}"
 	fi
 
@@ -753,8 +750,8 @@ kvas_list_ipset_check(){
 # ------------------------------------------------------------------------------------------
 kvas_adguard_debug() {
 
-#	result=$(cat < "/opt/apps/kvas/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
-#	echo_debug "Скрипт заполнения защищенный список /opt/apps/kvas/bin/main/dnsmasq" "${result}"
+#	result=$(cat < "/opt/apps/frt/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+#	echo_debug "Скрипт заполнения защищенный список /opt/apps/frt/bin/main/dnsmasq" "${result}"
 	result=$(cat < "${ADGUARD_IPSET_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -e '$d' | sed 's/^...../*****/' )
 	echo_debug "Блок записей по ipset в ${ADGUARD_IPSET_FILE}" "${result}"
 	
@@ -771,8 +768,8 @@ kvas_adguard_debug() {
 adblock_dnsmasq_debug() {
 
 	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | sed '/^$/d' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
-#		result=$(cat < "/opt/apps/kvas/bin/main/adblock")
-#		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/kvas/bin/main/adblock" "${result}"
+#		result=$(cat < "/opt/apps/frt/bin/main/adblock")
+#		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/frt/bin/main/adblock" "${result}"
 		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' )
 		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (все записи)" "${result}"
 	fi
@@ -868,7 +865,7 @@ syslog__show() {
 #
 # ------------------------------------------------------------------------------------------
 ping_debug() {
-	#  host=$(cat < '"${KVAS_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
+	#  host=$(cat < '"${FRT_LIST_FILE}"' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tr -s '\n' | head -1)
 	host='myip2.ru'
 	result=$(ping -c3 "${host}")
 	echo_debug "Прозвон ${host}" "${result}"
@@ -931,7 +928,7 @@ show_guest_nets(){
 }
 
 show_services_status(){
-	. /opt/apps/kvas/bin/libs/vpn
+	. /opt/apps/frt/bin/libs/vpn
 	cmd_vpn_status
 	cmd_ads_status
 	if [ -f "${ADGUARDHOME_DEMON}" ] && cmd_adguardhome_status | grep -q ВКЛЮЧЕН ; then

@@ -1,0 +1,41 @@
+#!/bin/sh
+# ------------------------------------------------------------------------------------------
+#
+# 	Forest Router Tool (FRT)
+# ------------------------------------------------------------------------------------------
+#	Лицензия: Apache License 2.0
+# ------------------------------------------------------------------------------------------
+
+. /opt/apps/frt/bin/libs/ndm_d
+
+tmp_file=/opt/tmp/sub_connection
+
+if [ "${1}" = "hook" ]; then
+	 if echo "${id}" | grep -qE 'PPTP|L2TP' && is_cli_iface_global "${id}"; then
+		case "${layer}-${level}" in
+			"ipv4-disabled" )
+				touch "${tmp_file}"
+			;;
+			"ipv4-running" )
+				[ -f "${tmp_file}" ] && {
+					cmd_vpn_iptable_reset &> /dev/null
+					logger -t "FRT"  "Соединение ${id} успешно подключено, правила восстановлены!"
+					rm -f "${tmp_file}"
+				}
+			;;
+		esac
+	fi
+
+	if [ "${id}" = "$(inface_cli)" ]; then
+		case "${layer}-${level}" in
+			"ctrl-disabled" )
+				link_reboot &> /dev/null
+				logger -t "FRT"  "Соединение ${id} прервано. Правила и таблицы очищены."
+			;;
+			"ctrl-running" )
+				cmd_vpn_iptable_reset &> /dev/null
+				logger -t "FRT"  "Соединение ${id} установлено. Правила и таблицы пересозданы."
+			;;
+		esac
+	fi
+fi
