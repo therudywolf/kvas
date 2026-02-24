@@ -51,7 +51,7 @@ cmd_show_tags_domain_list(){
 
     IFS=$'\n'
     for line in $_list; do
-        if [[ "$line" =~ \[.*?\] ]]; then
+        if echo "$line" | grep -qE '\[.*\]'; then
             echo -e "  $line"
         else
             echo ''
@@ -70,7 +70,7 @@ cmd_show_tags_domain_list(){
 #
 # ------------------------------------------------------------------------------------------
 get_tags_list(){
-    cat < "${TAGS_FILE}" | grep -vE '^#|^$' | grep "\[" | grep "\]" | tr -d ']['
+    grep -vE '^#|^$' "${TAGS_FILE}" | grep "\[" | grep "\]" | tr -d ']['
 }
 
 # ------------------------------------------------------------------------------------------
@@ -101,8 +101,8 @@ _check_section() {
     local section="$1"
     if ! grep -q "\[$section\]" "${TAGS_FILE}"; then
         read_ynq "Закваска '$section' не найдена. Добавить?" answer
-        if [[ "$answer" =~ [qn] ]] ; then return 1;
-        elif [[ "$answer" =~ [y] ]] ; then
+        if echo "$answer" | grep -qE '[qn]' ; then return 1;
+        elif echo "$answer" | grep -qE '[y]' ; then
             echo -e "\n[$section]" >> "${TAGS_FILE}"
         fi
         print_line
@@ -202,7 +202,7 @@ cmd_del_domain_from_tag_list() {
     # Если задана только секция - удаляем все домены в этой секции
     if [ -z "${domain}" ] ; then
         read_ynq "Будут удалены все домены с закваской '$section' и само имя закваски.\nВы уверены?" answer
-        if [[ "$answer" =~ [qn] ]] ; then return 1; fi
+        if echo "$answer" | grep -qE '[qn]' ; then return 1; fi
         [ "${answer}" = y ] && {
             sed -i "/\[$section\]/,/\[.*\]/ { /.*$/d }" "${TAGS_FILE}"
         }
@@ -363,11 +363,11 @@ EOF
 	    local choice
             read -p "Выберите номер закваски из списка [1-$i], A:Все, Q:Выход: " choice
 
-            [[ "${choice}" =~ [qQ] ]] && return 0
-            [[ "${choice}" =~ [aA] ]] && break
+            echo "${choice}" | grep -qE '[qQ]' && return 0
+            echo "${choice}" | grep -qE '[aA]' && break
 #set -xeu
            # Проверка на ввод только цифр и в пределах диапазона
-            if [[ "${choice}" =~ ^[0-9]+$ ]] && [ ${choice} -ge 1 ] && [ ${choice} -le ${i} ]; then
+            if echo "${choice}" | grep -qE '^[0-9]+$' && [ ${choice} -ge 1 ] && [ ${choice} -le ${i} ]; then
                 break
             else
                 error "Неверный ввод. Пожалуйста, введите номер из списка."
@@ -375,7 +375,7 @@ EOF
 
         done
 #set -xeu
-        if [[ "${choice}" =~ [aA] ]] ; then
+        if echo "${choice}" | grep -qE '[aA]' ; then
             # если выбрано все
             eval "$2=ALL"
         else
@@ -385,7 +385,7 @@ EOF
         fi
 
     else
-        if [  $(cat < "${TAGS_FILE}" | wc -l) -le 1 ] ; then 
+        if [ "$(wc -l < "${TAGS_FILE}")" -le 1 ] ; then 
             error "Список заквасок пуст.\nПроверьте наличие заквасок в файле '${TAGS_FILE}'."
         else 
             print_line

@@ -1,3 +1,13 @@
+## Аудит FRT: POSIX, безопасность, Jenkins, именование
+
+- **Окончания строк:** `.gitattributes` с `*.sh text eol=lf`; `scripts/build-ipk.sh` переведён на LF; в README — запуск на Windows через `bash scripts/build-ipk.sh`.
+- **Именование kvas → frt:** в setup `backup_path="${HOME}/frt"`; во vpn временные файлы `/tmp/frt_without_ip.txt`, `/tmp/frt_sorted_list.txt`.
+- **UUOC:** замены `cat < file | grep`/`sed` на прямые вызовы `grep`/`sed` по файлу и `wc -l < file` в check, hosts, debug, vpn, tags, upgrade, check_vpn, main, frt.
+- **POSIX:** в main/vpn/debug/setup/tags заменены не-POSIX конструкции: `${params:0:-1}` → `${params%?}`; `${host:0:1}`, `${line::1}` → `case`; `${line/\*/}`, `${ips:0:n}` → `sed`/`printf`; `${var//,/ }` → `tr ',' ' '`; `[[ ]]`, `=~` → `[ ]`, `grep -qE`/`case`.
+- **Безопасность:** удаление по пользовательскому вводу в main (`del_config_value`), hosts (`cmd_hosts_one_del`), ndm `frt-iface-del` — через `grep -v -F` во временный файл вместо `sed -i "/${var}/d"`.
+- **AdGuard/adblock:** в debug добавлен комментарий, что блок adblock.dnsmasq — опциональная интеграция (reserved).
+- **Jenkins:** в начале Jenkinsfile — комментарий о зависимости от shared library (`isDockerImageExists`, `sendTelegramMessage`); образ собирается при отсутствии (`! isDockerImageExists`); общие сообщения вынесены в `env.MSG_PACKAGE_OK` / `MSG_PACKAGE_FAIL`.
+
 ## Быстрый сборщик, тесты, легаси, README, чистка
 
 - **Быстрый сборщик .ipk:** режим `--quick` / `--pack-only` в `scripts/build-ipk.sh` — сборка .ipk без Docker и без полного Entware SDK (требуется `ar`). Шаблон postinst: `scripts/postinst.in`.

@@ -33,7 +33,7 @@
 ./scripts/build-ipk.sh --pack-only
 ```
 
-Требуется утилита `ar` (binutils). Результат: `./output/frt_*.ipk`.
+Требуется утилита `ar` (binutils). Результат: `./output/frt_*.ipk`. На Windows запускайте через `bash scripts/build-ipk.sh --quick` (WSL или Git Bash), не через PowerShell.
 
 ### Сборка через Docker или SDK
 

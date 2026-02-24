@@ -249,7 +249,7 @@ get_iplist_from_domain(){
 			[ -z "${host}" ] || get_iplist_from_domain "${host}" "${dns_server}" || continue
 
 			# Проверяем, что ip не 0.0.0.0 и что его нет в списке ip_list
-            sep='\n'; [[ "${all_ip_list//timeout*/}" =~ ${ip} ]] || {
+            sep='\n'; echo "${all_ip_list}" | sed 's/timeout[^[:space:]]*//g' | grep -qF "${ip}" || {
                 [ -z "${all_ip_list}" ] && sep=''
 				# Добавляем ip в список, при прохождении всех условий
                 all_ip_list="$(printf "%s${sep}%s" "${all_ip_list}" "${ip}" \
@@ -572,7 +572,7 @@ nets__get_param_by_fields() {
 
 		params="${params}\\${field_num}|"
 	done
-	echo "${params:0:-1}"
+	printf '%s' "${params%?}"
 }
 
 nets__get() {
@@ -761,7 +761,8 @@ set_config_value() {
 #
 # ------------------------------------------------------------------------------------------
 del_config_value() {
-	sed -i "/${1}/d" "${FRT_CONF_FILE}"
+	# Safe deletion: avoid sed injection when $1 contains / or regex
+	grep -v -F -- "$1" "${FRT_CONF_FILE}" > "${FRT_CONF_FILE}.tmp" && mv "${FRT_CONF_FILE}.tmp" "${FRT_CONF_FILE}"
 }
 # ------------------------------------------------------------------------------------------
 #
@@ -1367,7 +1368,7 @@ ready_status(){
 
 		[ -f "${ERROR_LOG_FILE}" ] || touch "${ERROR_LOG_FILE}"
 #		Печатаем ошибку, только, если ошибка была и файл с ошибками не пустой
-        if [ "${operation_result}" = 1 ] || [ "$(cat < "${ERROR_LOG_FILE}" | wc -l)" -gt 0 ] ; then
+        if [ "${operation_result}" = 1 ] || [ "$(wc -l < "${ERROR_LOG_FILE}")" -gt 0 ] ; then
 			print_error "${error_desc}"
         else
         	[ "${errors_only}" = 1 ] && when_ok "${ok_mess}" || when_ok "ГОТОВО"

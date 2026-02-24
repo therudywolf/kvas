@@ -85,7 +85,7 @@ update_ipset(){
 update_adblock(){
 
 	if [ -f '/opt/etc/init.d/S56dnsmasq' ]; then
-			if cat < '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep -q "${ADBLOCK_HOSTS_FILE}" &> /dev/null; then
+			if sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' '/opt/etc/dnsmasq.conf' | grep -q "${ADBLOCK_HOSTS_FILE}" &> /dev/null; then
 				ready "${prefix}Обновляем данные списка блокировки рекламы."
 				/opt/apps/frt/bin/main/adblock &>/dev/null && when_ok "ГОТОВО" || when_bad "ОШИБКА"
 			fi
@@ -490,7 +490,7 @@ ipv6_status() {
 #		если вернем 2 - то IPv6 несовместим с указанным интерфейсом
 		[ "${res}" -eq 3 ] && echo 0
 		[ "${res}" -eq -1 ] && echo 2
-		[[ "${res}" -ge 0 ]] && [[ "${res}" -lt 3 ]] && echo 1
+		[ "${res}" -ge 0 ] && [ "${res}" -lt 3 ] && echo 1
 
 	else
 		when_bad "СБОЙ"
@@ -550,7 +550,7 @@ ipv6_inface_status() {
 # ------------------------------------------------------------------------------------------
 adguardhome_change_and_get_config_ip() {
 	ip_filter="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
-	ip_dns_adguard=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/^dns/,/port:/p' | grep -o "${ip_filter}")
+	ip_dns_adguard=$(sed -n '/^dns/,/port:/p' "${ADGUARDHOME_CONFIG}" | grep -o "${ip_filter}")
 #	Если DNS порт установлен в значение 0.0.0.0 (все адреса), то меняем его на ip роутера
 	if [ "${ip_dns_adguard}" = '0.0.0.0' ] ; then
 		ip_dns_adguard=$(get_router_ip)
@@ -607,7 +607,7 @@ adguardhome_setup() {
 #	и копируем подготовленный файл сервиса adguard в папку запуска сервисов
 #	проверяем файл на оригинальность (без переделок ли он под квас)
 
-	if [ -f "${ADGUARDHOME_DEMON}" ] && ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+	if [ -f "${ADGUARDHOME_DEMON}" ] && ! grep -q kvas "${ADGUARDHOME_DEMON}" ; then
 #		если оригинальный, то архивируем его
 		mv "${ADGUARDHOME_DEMON}" "${FRT_BACKUP_PATH}/S99adguardhome.origin"
 	fi
@@ -637,7 +637,7 @@ adguardhome_setup() {
 		when_bad "СБОЙ";
 		error "Возникла ошибка при установке AdGuard Home в качестве основного DNS сервера."
 		print_line
-		cat < "${ADGUARDHOME_LOG}" | tail
+		tail "${ADGUARDHOME_LOG}"
 		exit 1
 	fi
 }
@@ -649,7 +649,7 @@ adguardhome_setup() {
 # ------------------------------------------------------------------------------------------
 get_adguardhome_ip_port() {
 	ip_filter="[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}"
-	ip_dns_adguard=$(cat < "${ADGUARDHOME_CONFIG}" | sed -n '/^dns/,/port:/p' | grep -o "${ip_filter}")
+	ip_dns_adguard=$(sed -n '/^dns/,/port:/p' "${ADGUARDHOME_CONFIG}" | grep -o "${ip_filter}")
 	echo "${ip_dns_adguard}" | grep -q '0.0.0.0' && dns_ip=$(get_router_ip)
 	echo "${ip_dns_adguard}#${MAIN_DNS_PORT}"
 }
@@ -694,8 +694,8 @@ adguardhome_check_config() {
 			cp "${FRT_BACKUP_PATH}/AdGuardHome.yaml" "${ADGUARDHOME_CONFIG}"
 			"${ADGUARDHOME_DEMON}" restart  &> /dev/null
 			ip=$(get_router_ip)
-			port=$(cat < "${ADGUARDHOME_CONFIG}" | grep '^bind_port: ' | cut -d':' -f2 | tr -d ' \n')
-			[ -z "${port}" ] && port="$(cat "${ADGUARDHOME_CONFIG}" | grep 'address:' | cut -d':' -f3)"
+			port=$(grep '^bind_port: ' "${ADGUARDHOME_CONFIG}" | cut -d':' -f2 | tr -d ' \n')
+			[ -z "${port}" ] && port="$(grep 'address:' "${ADGUARDHOME_CONFIG}" | cut -d':' -f3)"
 			warning "Был обнаружен и восстановлен архивный файл конфигурации AdGuard Home."
 			warning "Панель управления находится по адресу: ${BLUE}http://${ip}:${port}${NOCL}"
 			print_line
@@ -708,7 +708,7 @@ adguardhome_check_config() {
 #			Проверяем наличие файла конфигурации AdGuardHome в папке исполняемых файлов
 			if [ -f /opt/bin/AdGuardHome.yaml ] && [ -f "${ADGUARDHOME_DEMON}" ]; then
 #				проверяем файл на оригинальность (без переделок ли он под квас)
-				if ! cat < "${ADGUARDHOME_DEMON}" | grep -q kvas ; then
+				if ! grep -q kvas "${ADGUARDHOME_DEMON}" ; then
 #					если оригинальный, то архивируем его
 					mv "${ADGUARDHOME_DEMON}" "${FRT_BACKUP_PATH}/S99adguardhome.origin"
 				fi
@@ -754,7 +754,7 @@ adguardhome_check_config() {
 			sleep 2
 
 			while true; do
-				if cat < "${log_file}" | grep 'go to http' | grep -qv ':3000' || cat < "${log_file}" | grep -q ' listen tcp 0.0.0.0:3000: bind: address already in use' ; then
+				if grep 'go to http' "${log_file}" | grep -qv ':3000' || grep -q ' listen tcp 0.0.0.0:3000: bind: address already in use' "${log_file}" ; then
 					mv "${tmp_conf}" "${ADGUARDHOME_CONFIG}"
 					killall AdGuardHome
 					adguardhome_setup
@@ -961,7 +961,7 @@ ikev2_include_to_list(){
 				txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
 				prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
                 ready "${prn}"
-                cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+                grep 'INFACE_GUEST_ENT=' "${FRT_CONF_FILE}" | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
         fi
 
 }
@@ -988,7 +988,7 @@ guest_include_to_list(){
 #       отображаем все гостевые интерфейсы
 	prn="$(_join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
         ready "${prn}"
-        cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+        grep 'INFACE_GUEST_ENT=' "${FRT_CONF_FILE}" | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
 }
 
 warning_info(){
@@ -1038,7 +1038,7 @@ cmd_bridge_vpn_access_list() {
 
 	num=0
 	#        Подключаем IKEv2 VPN-сервер
-	if cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
+	if grep 'INFACE_GUEST_ENT=' "${FRT_CONF_FILE}" | grep -qi ikev2; then
 			if [ -z "${wild}" ] || [ "${wild}" = del ]; then
 					ikev2_item=$(ikev2_include_to_list)
 					[ -n "${ikev2_item}" ] && {
@@ -1066,9 +1066,9 @@ cmd_bridge_vpn_access_list() {
 				ent_inf=$(/opt/sbin/ip a | grep global | grep "${net_ip}" | sed 's/.* \(.*\)$/\1/')
 			else
 				desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
-				ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
+				ent_inf=$(grep "${desc}" /opt/etc/inface_equals | cut -d'|' -f2)
 			fi
-			if cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
+			if grep 'INFACE_GUEST_ENT=' "${FRT_CONF_FILE}" | grep -qi "${ent_inf}"; then
 
 				if [ -z "${wild}" ] || [ "${wild}" = del ]; then
 					num=$((num + 1))
@@ -1092,7 +1092,7 @@ cmd_bridge_vpn_access_list() {
 # ------------------------------------------------------------------------------------------
 
 del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
+		has_guest_nets=$(sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;' "${FRT_CONF_FILE}" | sed 's/[ ,]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${FRT_CONF_FILE}"
 }
@@ -1147,7 +1147,7 @@ bridge_access_add() {
 # set +xe
 #		если сеть уже есть в списке, то пропускаем добавление
 		grep INFACE_GUEST_ENT "${FRT_CONF_FILE}" | grep -q "${guest_bridge_id}" || {
-			has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+			has_guest_nets=$(sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p' "${FRT_CONF_FILE}")
 			[ -n "${has_guest_nets}" ] && point=',' || point=''
 			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g; s/[ ]//g" "${FRT_CONF_FILE}"
 		}
@@ -1190,7 +1190,7 @@ ikev2_setup() {
 }
 
 add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
+        has_guest_nets=$(sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;' "${FRT_CONF_FILE}" | sed 's/[ ]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         del_ikev2_net_from_config
         sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${FRT_CONF_FILE}"
@@ -1804,7 +1804,7 @@ shadowsocks_read_link(){
 	read_value "Ведите кодированную ссылку в формате ss://:" SSR_LINK
 	[ "${SSR_LINK}" = q ] && exit 1
 
-	if [[ -n "${SSR_LINK}" && "${#SSR_LINK}" -gt 6 ]] ; then
+	if [ -n "${SSR_LINK}" ] && [ "${#SSR_LINK}" -gt 6 ] ; then
 		SSR_LINK="$(echo "${SSR_LINK}" | sed -E 's/(.*)[#?\/]\?.*|(.*)#.*/\1\2/')"
 		# password=$(echo "${SSR_LINK}" | grep -oP "(?<=ss://).*?(?=@)" | base64 -d )
 		password=$(echo "${SSR_LINK}" | awk -F'[/:@]' '{print $(NF-2)}' | base64 -d )
@@ -2051,18 +2051,18 @@ EOF
 		# если при ежесекундной проверке интерфейс в файле появится, то ожидание прервётся
 		# если он уже на месте, задержки не будет
 		attempt=15
-		while [[ $attempt -gt 0 ]] && ! $(grep -Fq "${inface_cli}" "${INFACE_NAMES_FILE}"); do
+		while [ $attempt -gt 0 ] && ! grep -Fq "${inface_cli}" "${INFACE_NAMES_FILE}"; do
 			sleep 3
 			attempt=$(( $attempt - 1 ))
 		done
 
-		if [[ $attempt -gt 0 ]]; then
+		if [ $attempt -gt 0 ]; then
 			# получаем описание интерфейса
 			description=$(get_value_interface_field "${inface_cli}" description | sed 's|\/|\\/|g')
 
 			# Ищем интерфейс PROXY_VLESS_NAME в списке и обновляем его описание 
 			# данное имя (PROXY_VLESS_NAME) дается интерфейсу при его создании и оно уникально, чтобы не спутать его с другими Proxy
-			[[ "${inface_cli}" == "${PROXY_VLESS_NAME}" ]] && description="${description} [vless]"
+			[ "${inface_cli}" = "${PROXY_VLESS_NAME}" ] && description="${description} [vless]"
 
 			# вставляем описание в файл /opt/etc/inface_equals
 			[ -n "${description}" ] && \
@@ -2099,7 +2099,7 @@ get_vpn_interface_by_num() {
 	type_data=${2:-entware}
 
 	if [ "${type_data}" = entware ]; then _type=2; else _type=1; fi
-	cat < "${INFACE_NAMES_FILE}" | sed -n "${number}"'p' | cut -d'|' -f"${_type}"
+	sed -n "${number}"'p' "${INFACE_NAMES_FILE}" | cut -d'|' -f"${_type}"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -2237,7 +2237,7 @@ cmd_manual_gateway_set() {
 			exit 1; 
 		}
 
-		if [[ "$addr_gateway" =~ ^[Qq]$ ]] || [[ "$_inface_gateway" =~ ^[Qq]$ ]]; then
+		if echo "$addr_gateway" | grep -qE '^[Qq]$' || echo "$_inface_gateway" | grep -qE '^[Qq]$'; then
 			print_line
 #			Если нажали на q
 			echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
@@ -2318,7 +2318,7 @@ switch_vpn_on(){
 	# Останавливаем xray, если запушен	
 	${XRAY_INIT} stop &> /dev/null
 
-	if [[ "${inface_entware}" =~ ${SSR_ENTWARE_TEMPL} ]]; then
+	if echo "${inface_entware}" | grep -qE "${SSR_ENTWARE_TEMPL}"; then
 		vpn_off &> /dev/null
 		shadowsocks_backup
 		shadowsocks_on
@@ -2373,15 +2373,15 @@ select_vpn_interface() {
 #	Отображаем список текущих интерфейсов с номерами по порядку и данными об их доступности
 	show_vpn_list
 
-	total=$(cat < "${INFACE_NAMES_FILE}" | wc -l)
+	total=$(wc -l < "${INFACE_NAMES_FILE}")
 	while true; do
 		print_line
 		echo -en "${BLUE}Выберите номер варианта VPN соединения 1 - ${total} | S-скан. | Q-выход:${NOCL} "
 		read -r num_vpn_inface
-		if [[ "$num_vpn_inface" =~ ^[\-]?[0-9]+$ ]]; then
+		if echo "$num_vpn_inface" | grep -qE '^\-?[0-9]+$'; then
 			print_line
 			set_config_value "ADDR_MAN" ""
-			if [[ "$num_vpn_inface" -ge 1 && "$num_vpn_inface" -le "$total" ]]; then
+			if [ "$num_vpn_inface" -ge 1 ] && [ "$num_vpn_inface" -le "$total" ]; then
 # set -x
 	#			Если выбрали уже интерфейс
 		#		Меняем интерфейс в файле ndm
@@ -2393,7 +2393,7 @@ select_vpn_interface() {
 				error "Число должно быть в пределах от 1 до ${total}"
 				continue
 			fi
-		elif [[ "$num_vpn_inface" =~ ^[Qq]$ ]]; then
+		elif echo "$num_vpn_inface" | grep -qE '^[Qq]$'; then
 			print_line
 #			Если нажали на q
 			echo -e "${RED}Процедура настройки прервана пользователем!${NOCL}"
@@ -2422,7 +2422,7 @@ select_vpn_interface() {
 				exit 1
 			fi
 			exit
-		elif [[ "$num_vpn_inface" =~ ^[Ss]$ ]]; then
+		elif echo "$num_vpn_inface" | grep -qE '^[Ss]$'; then
 			print_line
 			cmd_interface_change "yes" "${is_install_stage}"
 		else
@@ -2642,7 +2642,7 @@ add_host_to_adguard(){
 	clear_host="${1}"
 	#   AdGuardHome обработка
 	echo "${_host}" >> "${FRT_LIST_FILE}"
-	[ -f "${ADGUARD_IPSET_FILE}" ] && cat < "${ADGUARD_IPSET_FILE}" | grep -q "${clear_host}" \
+	[ -f "${ADGUARD_IPSET_FILE}" ] && grep -q "${clear_host}" "${ADGUARD_IPSET_FILE}" \
 	 		|| echo "${clear_host}/${IPSET_TABLE_NAME}" >> "${ADGUARD_IPSET_FILE}"
 	if echo "${host}" | grep -q '\*' ; then
   		echo "ipset=/:.*${clear_host}:/${IPSET_TABLE_NAME}" >> "${DNSMASQ_IPSET_HOSTS}"
@@ -2771,8 +2771,8 @@ cmd_add_one_host() {
 		[ -z "${tag_name}" ] && tagname=$(_get_tagname_by_domain "${host}" | tail -1)
 		# Если есть, то спрашивем добавить ли их
 		read_ynq "Найдены доменные имена с тегом '${tag_name}',которых пока нет в списке защищенных доменнов.\nДобавить их в список?" answer
-		[[ "$answer" =~ [qn] ]] && return 1
-		if [[ "$answer" =~ [y] ]] ; then
+		echo "$answer" | grep -qE '[qn]' && return 1
+		if echo "$answer" | grep -qE '[y]' ; then
 			print_line
 			cmd_import_hosts "${_tmpfile}"
 		fi
@@ -2804,7 +2804,7 @@ cmd_add_one_host() {
 			fi
 		else
 			# проверка на наличие домена в списке защиты доменов
-			if cat < "${FRT_LIST_FILE}" | grep -qE "^${clear_host}" ; then
+			if grep -qE "^${clear_host}" "${FRT_LIST_FILE}"; then
 				[ "${wild}" = import ] || warning "Такой домен уже есть в защищенном списке!"
 				if [ "${clear_host}" != "${host}" ] ; then
 					warning "Производим замену ${clear_host} на ${host}"
@@ -2953,7 +2953,7 @@ cmd_clear_list() {
 		echo -n "${submessage}..."
 		log_warning "${submessage}"
 
-		local tmp_file='/tmp/kvas_without_ip.txt'
+		local tmp_file='/tmp/frt_without_ip.txt'
 		>"${tmp_file}"
 		local regexp_ip
 		regexp_ip="$(get_regexp_ip_or_range)"
@@ -3096,7 +3096,7 @@ cmd_import_hosts() {
 		# проверку на уникальность сделаем на лету, сортировку в финале
 
 		#sort -o не поддерживается, поэтому через временный файл
-		local tmp_file='/tmp/kvas_sorted_list.txt'
+		local tmp_file='/tmp/frt_sorted_list.txt'
 		cp -f "${FRT_LIST_FILE}" "${tmp_file}"
 
 		echo -n 'Импортируем IP в список защиты..'
@@ -3162,7 +3162,7 @@ cmd_import_hosts() {
 		#  пропускаем пустые строки и строки с комментариями
 		[ -z "${host}" ] && continue
 		#  пропускаем строки с комментариями
-		[ "${host:0:1}" = "#" ] && continue
+		case "${host}" in "#"*) continue ;; esac
 
 		case "$(cmd_add_one_host "${host}" "no" "import")" in
 		0) hosts_not_added="${hosts_not_added}${host}\n" ;;
@@ -3232,7 +3232,7 @@ cmd_import_hosts() {
 #
 # ------------------------------------------------------------------------------------------
 cmd_export_hosts() {
-	HOSTS_LIST=$(cat < "${FRT_LIST_FILE}" | sed 's/\(^.*\)#.*$/\1/g' | grep -v '#' | tr -s '\n')
+	HOSTS_LIST=$(sed 's/\(^.*\)#.*$/\1/g' "${FRT_LIST_FILE}" | grep -v '#' | tr -s '\n')
 	backup_name=${1}
 	if [ -z "${backup_name}" ]; then
 		error "Так как не задано имя файла для экспорта, то"
@@ -3264,7 +3264,7 @@ add_tag_section_to_protect_list() {
         print_line
 
 		if [ "${tag_selected}" = ALL ] ; then
-			domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#. *$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+			domains=$(sed 's/\(^.*\)#. *$/\1/g' "${TAGS_FILE}" | grep -Ev '#|\[' | tr -s '\n')
 		else
 			domains=$(get_tag_domain_list "${tag_selected}")
 		fi
@@ -3310,7 +3310,7 @@ del_tag_section_to_protect_list() {
 
 	print_line
 	if [ "${tag_selected}" = ALL ] ; then
-		domains=$(cat < "${TAGS_FILE}" | sed 's/\(^.*\)#. *$/\1/g' | grep -Ev '#|\[' | tr -s '\n')
+		domains=$(sed 's/\(^.*\)#. *$/\1/g' "${TAGS_FILE}" | grep -Ev '#|\[' | tr -s '\n')
 	else 
 		domains=$(get_tag_domain_list "${tag_selected}")
 	fi
@@ -3321,7 +3321,7 @@ del_tag_section_to_protect_list() {
 		echo -e "${exist_into_list}"
 		print_line
 		read_ynq "Удаляем?" answer
-		if [[ "$answer" =~ [qQ] ]] ; then
+		if echo "$answer" | grep -qE '[qQ]' ; then
 			return 0 
 		elif [ "${answer}" = y ]; then
 			print_line

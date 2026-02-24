@@ -10,6 +10,6 @@ if [ "${1}" = "hook" ] ; then
 
 	. /opt/apps/frt/bin/libs/ndm_d
 
-    grep -q "${id}" "${iface_file}" && sed -i '/'"${id}"'/d' "${iface_file}"
+    grep -q -F "${id}" "${iface_file}" && grep -v -F "${id}" "${iface_file}" > "${iface_file}.tmp" && mv "${iface_file}.tmp" "${iface_file}"
 
 fi

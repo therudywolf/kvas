@@ -278,7 +278,7 @@ list__backup() {
 	fi
 	local source_file="${1}"
 
-	local backup_path="${HOME}/kvas"
+	local backup_path="${HOME}/frt"
 	local backup_filename
 	backup_filename=$( date '+%y-%m-%d' )
 	backup_filename="list_${backup_filename}.txt"
@@ -702,8 +702,8 @@ cmd_uninstall() {
 	echo -e "Удаление пакета ${GREEN}КВАС™${NOCL} версии ${GREEN}${APP_VERSION}${rel}${NOCL}..."
 
 
-	if [ -n "${rm_type}" ] && [[ "${rm_type}" =~ "${answer_yes}" ]] \
-		|| [[ "${sure}" =~ "${answer_yes}" ]] ; then
+	if [ -n "${rm_type}" ] && echo "${rm_type}" | grep -qE "${answer_yes}" \
+		|| echo "${sure}" | grep -qE "${answer_yes}" ; then
 		answer=y; sure=y
 	else
 		print_line
@@ -715,7 +715,7 @@ cmd_uninstall() {
 		if [ "${rm_type}" = full ]; then
 			mess="Удаляем все архивные данные и все зависимые пакеты..."
 			rm -f /opt/etc/init/K56dnsmasq  /opt/etc/init/K09dnscrypt-proxy2
-		elif [ "${rm_type}" == develop ] ; then
+		elif [ "${rm_type}" = develop ] ; then
 			all_services_rm_develop_mode
 		else
 #			Сохраняем значимые файлы конфигурации

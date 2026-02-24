@@ -21,7 +21,7 @@ cmd_hosts_list(){
     warning "Список доменных имен в файле ${GREEN}${HOSTS_FILE}${NOCL}:"
 	print_line
 	[ -f ${HOSTS_FILE} ] || touch ${HOSTS_FILE}
-    cat < ${HOSTS_FILE} | grep -vE '^#|^$'
+    grep -vE '^#|^$' "${HOSTS_FILE}"
 }
 
 dns_server_restart(){
@@ -84,7 +84,7 @@ cmd_hosts_one_del(){
 
 	if [ -f ${HOSTS_FILE} ] ; then 
 		if [ -n "${1}" ]; then
-			sed -i "/${1}/d" ${HOSTS_FILE}
+			grep -v -F -- "$1" "${HOSTS_FILE}" > "${HOSTS_FILE}.tmp" && mv "${HOSTS_FILE}.tmp" "${HOSTS_FILE}"
 		else
 			error "Аргумент не задан" nl
 			print_line

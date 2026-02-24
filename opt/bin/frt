@@ -75,7 +75,7 @@ case "${1}" in
 	vless)
 		case "${2}" in
 			new) 	rm -f "${VLESS_CONFIG_FILE}"
-					start_vless "$(cat ${INFACE_NAMES_FILE} | grep vless | cut -d'|' -f2)"
+					start_vless "$(grep vless "${INFACE_NAMES_FILE}" | cut -d'|' -f2)"
 				;;
 			*) 		cmd_install_proxy_package
 				;;

@@ -204,7 +204,7 @@ shadowsocks_check() {
 			fi
 		fi
 
-		port=$(cat < '/opt/etc/shadowsocks.json' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep local_port | cut -d':' -f2 | tr -d ' ,')
+		port=$(sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
 		ready "Отслеживание порта #${port} shadowsocks "
 		if netstat -ltunp 2> /dev/null | grep ':'"${port}" &> /dev/null; then
 			when_ok "СЛЕДИМ"
@@ -225,7 +225,7 @@ dnscrypt_proxy_check() { :; }
 # ------------------------------------------------------------------------------------------
 iptable_check() {
 	ready "Наличие правил защиты в iptable"
-	count_local_nets=$(cat < "${EXCLUDED_NET_FILE}" | wc -l)
+	count_local_nets=$(wc -l < "${EXCLUDED_NET_FILE}")
 	count_ip4tables_rules=$(/opt/sbin/iptables-save \
 		| grep -E "${IPSET_TABLE_NAME}|${VPN_IPTABLES_CHAIN}|${SSR_IPTABLES_CHAIN}" \
 		| grep -c '\-A')
@@ -294,18 +294,18 @@ ipset_check() {
 # ------------------------------------------------------------------------------------------
 frt_dnsmasq_check() {
 	ready "Список правил ipset для dnsmasq"
-	if [ "$(cat < "${DNSMASQ_IPSET_HOSTS}" | wc -l)" -gt 0 ]; then
+	if [ "$(wc -l < "${DNSMASQ_IPSET_HOSTS}")" -gt 0 ]; then
 		when_ok "ЗАПОЛНЕН"
 	else
 		when_bad "ПУСТ"
 		/opt/apps/frt/bin/main/dnsmasq
 		ready "Повторная проверка заполнения списка правил ipset для dnsmasq"
-		if [ "$(cat < "${DNSMASQ_IPSET_HOSTS}" | wc -l)" -gt 0 ]; then
+		if [ "$(wc -l < "${DNSMASQ_IPSET_HOSTS}")" -gt 0 ]; then
 			when_ok "ПРОЙДЕНА"
 		else
 			when_bad "ОШИБКА"
 			print_line
-			if [ "$(cat < "${FRT_LIST_FILE}" | wc -l)" -gt 0 ]; then
+			if [ "$(wc -l < "${FRT_LIST_FILE}")" -gt 0 ]; then
 				error "Белый список пуст - /opt/etc/frt.list"
 				warning "Добавьте туда хосты командой ${BLUE}frt add host.com"
 			else
@@ -354,7 +354,7 @@ internet_check() {
 #
 # ------------------------------------------------------------------------------------------
 hosts_list_check(){
-	{ ! [ -f "${FRT_LIST_FILE}" ] || [ "$(cat < "${FRT_LIST_FILE}" | wc -l)" = 0 ];} && {
+	{ ! [ -f "${FRT_LIST_FILE}" ] || [ "$(wc -l < "${FRT_LIST_FILE}")" = 0 ];} && {
 		warning "Файл защищенного списка не существует"
 		warning "Создаем новый, но c одним хостом для проверки: myip2.ru"
 		print_line

@@ -246,8 +246,7 @@ if echo "${*}" | grep -qv 'force' ; then
 	#	Если это не форсированная установка и не откат, то
 	#	проверяем - обнаружена ли предыдущая версия Кваса
 	#	и сравниваем ее версию с новой версией
-		prev_ver=$(cat < ${frt_conf} \
-					| grep -E 'VERSION|RELEASE' \
+		prev_ver=$(grep -E 'VERSION|RELEASE' "${frt_conf}" \
 					| tr -d '\n' | tr '-' '_' \
 					| sed 's/^APP_VERSION=\(.*\)APP_RELEASE=\(.*\)/\1-\2\n/')
 		next_ver=$(echo "${package_name}" |  sed 's/frt_\(.*\)_all.*/\1/')

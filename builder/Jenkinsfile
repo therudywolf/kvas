@@ -1,3 +1,5 @@
+// Requires Jenkins shared library providing: isDockerImageExists( String imageName ), sendTelegramMessage( String msg ).
+// Without it, replace with: sh 'docker image inspect ' + env.DOCKER_IMAGE + ' || true' and your Telegram notifier.
 pipeline {
     agent any
 
@@ -11,7 +13,7 @@ pipeline {
     }
 
     environment {
-        SYSTEM = 'Entware' 
+        SYSTEM = 'Entware'
         ENTWARE_REPO_URL = 'https://github.com/Entware/Entware.git'
         DOCKER_IMAGE = 'entware-build-env'
         USER_NAME = "master"
@@ -21,7 +23,9 @@ pipeline {
         BUILD_PATH = "/build/entware"
         USER_ID = 115
         GROUP_ID = 123
-        APP_VERSION="${params.VERSION}-${params.STAGE}${params.BUILD}"
+        APP_VERSION = "${params.VERSION}-${params.STAGE}${params.BUILD}"
+        MSG_PACKAGE_OK = "✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}"
+        MSG_PACKAGE_FAIL = "❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}"
     }
     
     
@@ -51,7 +55,7 @@ pipeline {
             steps {
                 script {
                     
-                    if ( isDockerImageExists(env.DOCKER_IMAGE)) {
+                    if ( ! isDockerImageExists(env.DOCKER_IMAGE) ) {
                         docker.build(env.DOCKER_IMAGE, "--build-arg USER_NAME=${env.USER_NAME} --build-arg APP_PATH=/home/${env.USER_NAME}/${env.JOB_NAME} --build-arg BUILDING_PATH=${BUILD_PATH} --pull --tag ${env.DOCKER_IMAGE}  -f builder/Dockerfile .")
                     }
                 }
@@ -84,14 +88,10 @@ pipeline {
             }
             post {
                 success {
-                    script {
-                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_OK) }
                 }
                 failure {
-                    script {
-                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_FAIL) }
                 }
             }
         }
@@ -104,14 +104,10 @@ pipeline {
             }
             post {
                 success {
-                    script {
-                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_OK) }
                 }
                 failure {
-                    script {
-                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_FAIL) }
                 }
             }
         }
@@ -125,14 +121,10 @@ pipeline {
             }
             post {
                 success {
-                    script {
-                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_OK) }
                 }
                 failure {
-                    script {
-                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_FAIL) }
                 }
             }
         }
@@ -144,14 +136,10 @@ pipeline {
             }
             post {
                 success {
-                    script {
-                        sendTelegramMessage("✅ Пакет собран успешно: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_OK) }
                 }
                 failure {
-                    script {
-                        sendTelegramMessage("❌ Пакет собран с ошибками: ${params.VERSION}-${params.STAGE}")
-                    }
+                    script { sendTelegramMessage(env.MSG_PACKAGE_FAIL) }
                 }
             }
         }

@@ -43,7 +43,7 @@ dnsmasq_debug() {
 			print_line
 			warning "Файл конфигурации dnsmasq"
 			print_line
-			cat < "/opt/etc/dnsmasq.conf" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
+			sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' "/opt/etc/dnsmasq.conf"
 			print_line
 			exit 1
 			;;
@@ -72,7 +72,7 @@ dnsmasq_debug() {
 			;;
 		esac
 	fi
-	result=$(cat < /opt/etc/dnsmasq.conf | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
+	result=$(sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' /opt/etc/dnsmasq.conf)
 	echo_debug "Выборка из файла конфигурации dnsmasq: /opt/etc/dnsmasq.conf" "${result}"
 }
 
@@ -111,10 +111,10 @@ shadowsocks_debug() {
 	ready "Состояние службы shadowsocks"
 	if /opt/etc/init.d/S22shadowsocks status &> /dev/null; then
 		when_ok "ЗАПУЩЕНА"
-		port=$(cat < '/opt/etc/shadowsocks.json' | grep local_port | cut -d':' -f2 | tr -d ' ,')
+		port=$(grep local_port '/opt/etc/shadowsocks.json' | cut -d':' -f2 | tr -d ' ,')
 		result=$(netstat -ltunp 2> /dev/null | grep "${SSR_NAME}" | tr -s " ")
 		echo_debug "Отчет по прослушиванию порта shadowsocks [${port}]\nкоманда: netstat -ltunp | grep \"ss-redir\"" "${result}"
-		result=$(cat < /opt/etc/shadowsocks.json | grep -vE "password|server")
+		result=$(grep -vE "password|server" /opt/etc/shadowsocks.json)
 		echo_debug "Выборка из файла конфигурации shadowsocks /opt/etc/shadowsocks.json" "${result}"
 
 	else
@@ -122,7 +122,7 @@ shadowsocks_debug() {
 		print_line
 		warning "Файл конфигурации shadowsocks"
 		print_line
-		cat < "/opt/etc/shadowsocks.json" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d'
+		sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' "/opt/etc/shadowsocks.json"
 		print_line
 		warning "Запускаем shadowsocks в режиме отладки"
 		print_line
@@ -199,10 +199,8 @@ check_words_in_multiline_var() {
 
     echo "${multiline_var}" | while IFS= read -r line; do
         for word in $words; do
-            if [[ ! "${line//timeout*/}" == *"$word"* ]]; then
-                # echo "Слово '$word' не найдено в переменной."
-                return 1
-            fi
+            line_clean=$(echo "${line}" | sed 's/timeout[^[:space:]]*//g')
+            case "${line_clean}" in *"${word}"*) ;; *) return 1 ;; esac
         done
     done
 	# echo "Слово '$word' найдено в переменной."
@@ -657,15 +655,15 @@ frt_list_ipset_check(){
 		if [ -n "${result_ipset}" ]; then
 			while read -r line || [ -n "${line}" ]; do
 				[  -z "${line}" ] && continue
-				[ "${line::1}" = "#" ] && continue
+				case "${line}" in "#"*) continue ;; esac
 				#  Удаляем из слова первую * и затем меняем все 
-				line="${line/\*/}"
+				line=$(echo "${line}" | sed 's/^\*//')
 				hided_line="$(hide_num_letters "${line}")"
 
 				dns_ip=$(get_config_value DNS_DEFAULT)
 
 				if echo "${line}" | grep -qE "${IP_FILTER}|${NET_FILTER}" ; then
-					ips=${line}; ips=${ips//,/ }
+					ips=${line}; ips=$(echo "${ips}" | tr ',' ' ')
 				else
 					ips=$(get_iplist_from_domain "${line}" "${dns_ip}" | tr '\n' ',')
 					ips="${ips%?}"
@@ -679,7 +677,7 @@ frt_list_ipset_check(){
 					difflen=$((LENGTH - len_str))
 					_len=$((LENGTH - ${#line} - 18))
 					if [ "${difflen}" -lt 0 ]; then 
-						cutted="${ips:0:${_len}}...";
+						cutted="$(printf '%.*s' "${_len}" "${ips}")...";
 	 				else 
 						cutted="${ips} "; 
 					fi
@@ -752,10 +750,10 @@ kvas_adguard_debug() {
 
 #	result=$(cat < "/opt/apps/frt/bin/main/adguard" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d')
 #	echo_debug "Скрипт заполнения защищенный список /opt/apps/frt/bin/main/dnsmasq" "${result}"
-	result=$(cat < "${ADGUARD_IPSET_FILE}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | sed -e '$d' | sed 's/^...../*****/' )
+	result=$(sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' "${ADGUARD_IPSET_FILE}" | sed -e '$d' | sed 's/^...../*****/' )
 	echo_debug "Блок записей по ipset в ${ADGUARD_IPSET_FILE}" "${result}"
 	
-	result=$(cat < "${ADGUARDHOME_LOG}" | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | tail -20)
+	result=$(sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' "${ADGUARDHOME_LOG}" | tail -20)
 	echo_debug "Журнал загрузки AdGuard Home в ${ADGUARDHOME_LOG}" "${result}"
 
 
@@ -765,12 +763,13 @@ kvas_adguard_debug() {
 #	 Формируем лог отладочной информации
 #
 # ------------------------------------------------------------------------------------------
+# Optional: when dnsmasq includes adblock.dnsmasq (reserved / third-party list)
 adblock_dnsmasq_debug() {
 
-	if [ -n "$(cat < '/opt/etc/dnsmasq.conf' | sed '/^$/d' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
+	if [ -n "$(sed '/^$/d' '/opt/etc/dnsmasq.conf' | sed 's/^\(.*\)\(#.*\)/\2/; /^#/d; /^$/d' | grep "adblock.dnsmasq")" ]; then
 #		result=$(cat < "/opt/apps/frt/bin/main/adblock")
 #		echo_debug "Скрипт заполнения списка блокировки рекламы/opt/apps/frt/bin/main/adblock" "${result}"
-		result=$(cat < '/opt/etc/adblock.dnsmasq' | sed -e '/^#/d; /^$/d' )
+		result=$(sed -e '/^#/d; /^$/d' '/opt/etc/adblock.dnsmasq')
 		echo_debug "Список блокировки рекламы /opt/etc/adblock.dnsmasq (все записи)" "${result}"
 	fi
 }
@@ -898,7 +897,7 @@ router_info() {
 }
 
 kvas__show_config() {
-	cat < "${FRT_CONF_FILE}" | grep -v '=$' | grep -v '^$'
+	grep -v '=$' "${FRT_CONF_FILE}" | grep -v '^$'
 }
 
 kvas__show_install_log() {
@@ -909,7 +908,7 @@ kvas__show_install_log() {
 	print_line
 	echo "Журнал установки [${INSTALL_LOG}]:"
 	print_line
-	cat < "${INSTALL_LOG}" | sed 's/\(^Текущее.*\) .*$/\1/'
+	sed 's/\(^Текущее.*\) .*$/\1/' "${INSTALL_LOG}"
 	echo
 }
 
@@ -920,7 +919,7 @@ kvas__show_install_log() {
 # ------------------------------------------------------------------------------------------
 
 show_guest_nets(){
-	list=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g; s/^\,//')
+	list=$(sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;' "${FRT_CONF_FILE}" | sed 's/[ ]//g; s/^\,//')
 	[ -n "${list}" ] && {
 		ready "Список гостевых сетей"
 		when_ok "${list}"
