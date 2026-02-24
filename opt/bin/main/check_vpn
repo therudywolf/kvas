@@ -1,5 +1,5 @@
 #!/bin/sh
-source /opt/apps/kvas/bin/libs/main
+source /opt/apps/frt/bin/libs/main
 
 get_config_value(){
         grep "${1}" "${KVAS_CONF_FILE}" | cut -d'=' -f2
