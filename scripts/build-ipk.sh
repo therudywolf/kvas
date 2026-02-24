@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Сборка пакета kvas в .ipk.
-# Режимы: Docker (по умолчанию) или через существующий Entware SDK (TOPDIR).
+# Сборка пакета FRT в .ipk.
+# Режимы: --quick (pack-only, без Docker/SDK), Docker, или Entware SDK (TOPDIR).
 set -e
 
 APP_NAME=frt
@@ -13,9 +13,10 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Build kvas .ipk package."
+    echo "Build FRT .ipk package."
     echo ""
     echo "Options:"
+    echo "  --quick       Pack-only: build .ipk from opt/ without Docker or SDK (fast)"
     echo "  --docker      Use Docker (default if no TOPDIR)"
     echo "  --sdk         Use existing Entware SDK (requires TOPDIR)"
     echo "  -o DIR        Output directory for .ipk (default: ./output)"
@@ -30,6 +31,7 @@ usage() {
 mode=""
 while [ $# -gt 0 ]; do
     case "$1" in
+        --quick|--pack-only) mode=quick ;;
         --docker) mode=docker ;;
         --sdk)    mode=sdk ;;
         -o)       OUTPUT_DIR="$2"; shift ;;
@@ -51,6 +53,53 @@ fi
 mkdir -p "$OUTPUT_DIR"
 OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 
+# Pack-only: build .ipk from opt/ without Docker/SDK (PKGARCH=all)
+build_quick() {
+    if ! command -v ar &>/dev/null; then
+        echo "Error: 'ar' (binutils) required for pack-only build. Install binutils or use --docker/--sdk." >&2
+        exit 1
+    fi
+    echo "Building .ipk (pack-only)..."
+    local MAKEFILE="${REPO_ROOT}/Makefile"
+    local PKG_VERSION PKG_RELEASE
+    PKG_VERSION=$(grep -E '^PKG_VERSION:=' "$MAKEFILE" | sed 's/PKG_VERSION:=//')
+    PKG_RELEASE=$(grep -E '^PKG_RELEASE:=' "$MAKEFILE" | sed 's/PKG_RELEASE:=//')
+    [ -z "$PKG_VERSION" ] && PKG_VERSION="1.1.9_beta-10"
+    [ -z "$PKG_RELEASE" ] && PKG_RELEASE="19"
+
+    local BUILD_QUICK="${REPO_ROOT}/.build-quick-$$"
+    trap "rm -rf '$BUILD_QUICK'" EXIT
+    mkdir -p "${BUILD_QUICK}/data/opt/etc/init.d"
+    mkdir -p "${BUILD_QUICK}/data/opt/etc/ndm/fs.d"
+    mkdir -p "${BUILD_QUICK}/data/opt/etc/ndm/netfilter.d"
+    mkdir -p "${BUILD_QUICK}/data/opt/apps/frt"
+
+    cp "${REPO_ROOT}/opt/etc/ndm/fs.d/15-frt-start.sh" "${BUILD_QUICK}/data/opt/etc/ndm/fs.d/"
+    cp "${REPO_ROOT}/opt/etc/ndm/netfilter.d/100-dns-local" "${BUILD_QUICK}/data/opt/etc/ndm/netfilter.d/"
+    cp "${REPO_ROOT}/opt/etc/init.d/S96frt" "${BUILD_QUICK}/data/opt/etc/init.d/"
+    cp -r "${REPO_ROOT}/opt/." "${BUILD_QUICK}/data/opt/apps/frt/"
+
+    mkdir -p "${BUILD_QUICK}/control"
+    cat > "${BUILD_QUICK}/control/control" << EOF
+Package: ${APP_NAME}
+Version: ${PKG_VERSION}-${PKG_RELEASE}
+Architecture: all
+Maintainer: Rudy Wolf
+Description: Forest Router Tool (FRT). VPN/whitelist: traffic to listed hosts via VPN or Shadowsocks.
+Depends: libpcre, jq, curl, knot-dig, nano-full, cron, bind-dig, dnsmasq-full, ipset, iptables, shadowsocks-libev-ss-redir, shadowsocks-libev-config, libmbedtls, stubby
+EOF
+
+    sed -e "s/@PKG_VERSION@/${PKG_VERSION}/g" -e "s/@PKG_RELEASE@/${PKG_RELEASE}/g" \
+        "${REPO_ROOT}/scripts/postinst.in" > "${BUILD_QUICK}/control/postinst"
+    chmod +x "${BUILD_QUICK}/control/postinst"
+
+    echo "2.0" > "${BUILD_QUICK}/debian-binary"
+    ( cd "${BUILD_QUICK}/control" && tar --numeric-owner --owner=0 --group=0 -czf ../control.tar.gz . )
+    ( cd "${BUILD_QUICK}/data" && tar --numeric-owner --owner=0 --group=0 -czf ../data.tar.gz . )
+    ( cd "${BUILD_QUICK}" && ar rv "${OUTPUT_DIR}/${APP_NAME}_${PKG_VERSION}-${PKG_RELEASE}_all.ipk" debian-binary control.tar.gz data.tar.gz )
+    echo "Done. .ipk is in: $OUTPUT_DIR"
+}
+
 build_via_docker() {
     echo "Building .ipk via Docker..."
     if ! command -v docker &>/dev/null; then
@@ -68,7 +117,7 @@ build_via_docker() {
             -f "$REPO_ROOT/builder/Dockerfile" \
             "$REPO_ROOT"
     fi
-    # Монтируем: репо -> /home/master/kvas, output -> /output, создаём build
+    # Монтируем: репо -> /home/master/frt, output -> /output, создаём build
     BUILD_VOLUME="${REPO_ROOT}/.build-$$"
     mkdir -p "$BUILD_VOLUME"
     trap "rm -rf '$BUILD_VOLUME'" EXIT
@@ -94,12 +143,12 @@ build_via_sdk() {
         exit 1
     fi
     FEEDS_PACKAGES="${TOPDIR}/feeds/packages"
-    KVAS_FEED="${FEEDS_PACKAGES}/${APP_NAME}"
+    FRT_FEED="${FEEDS_PACKAGES}/${APP_NAME}"
     mkdir -p "$FEEDS_PACKAGES"
-    if [ -L "$KVAS_FEED" ]; then
-        rm -f "$KVAS_FEED"
+    if [ -L "$FRT_FEED" ]; then
+        rm -f "$FRT_FEED"
     fi
-    ln -sf "$REPO_ROOT" "$KVAS_FEED"
+    ln -sf "$REPO_ROOT" "$FRT_FEED"
     ( cd "$TOPDIR" && scripts/feeds update packages "${APP_NAME}" && scripts/feeds install -a "${APP_NAME}" )
     ( cd "$TOPDIR" && make defconfig && make -j"${MAKE_JOBS:-$(nproc 2>/dev/null || echo 4)}" "package/${APP_NAME}/compile" )
     n=0
@@ -114,6 +163,7 @@ build_via_sdk() {
 }
 
 case "$mode" in
+    quick) build_quick ;;
     docker) build_via_docker ;;
     sdk)   build_via_sdk ;;
     *)     echo "Invalid mode: $mode" >&2; exit 1 ;;

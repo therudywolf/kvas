@@ -1,0 +1,25 @@
+#!/bin/sh
+# Generated for FRT pack-only build. PKG_VERSION and PKG_RELEASE are substituted.
+
+BLUE="\033[36m"
+NOCL="\033[m"
+
+print_line()(printf "%83s\n" | tr " " "=")
+
+chmod -R +x /opt/apps/frt/bin/*
+chmod -R +x /opt/apps/frt/etc/init.d/*
+chmod -R +x /opt/apps/frt/etc/ndm/*
+
+ln -sf /opt/apps/frt/bin/frt /opt/bin/frt
+
+cp -f /opt/apps/frt/etc/conf/frt.conf /opt/etc/frt.conf
+[ -f /opt/etc/frt.list ] || cp -f /opt/apps/frt/etc/conf/frt.list /opt/etc/frt.list
+mkdir -p /opt/etc/dnsmasq.d
+cp -f /opt/apps/frt/etc/ndm/ndm /opt/apps/frt/bin/libs/ndm
+
+sed -i "s/\(APP_VERSION=\).*/\1@PKG_VERSION@/; s/^,//; s/\,/ /g;" "/opt/etc/frt.conf"
+sed -i "s/\(APP_RELEASE=\).*/\1@PKG_RELEASE@/; s/^,//; s/\,/ /g;" "/opt/etc/frt.conf"
+
+print_line
+echo -e "Для настройки пакета FRT наберите \033[36mfrt setup\033[m"
+print_line

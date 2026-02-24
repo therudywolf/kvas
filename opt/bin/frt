@@ -193,8 +193,8 @@ case "${1}" in
 	rollback)				sh /opt/apps/frt/bin/main/upgrade rollback "${2}"; exit 0
 		;;
 
-	pause|freeze)           cmd_pause_kvas ;;
-	unpause|unfreeze)       cmd_unpause_kvas ;;
+	pause|freeze)           cmd_pause_frt ;;
+	unpause|unfreeze)       cmd_unpause_frt ;;
 
 	uninstall ) 			cmd_uninstall  "${2}" "${3}"
 		;;

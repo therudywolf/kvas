@@ -182,7 +182,7 @@ service_restart(){
 		when_ok "УСПЕШНО"
 	else
 		when_bad "ОШИБКА"
-		error "Запустите диагностику командой kvas debug"
+		error "Запустите диагностику командой frt debug"
 	fi
 }
 
@@ -351,8 +351,8 @@ exit_when_adguard_on(){
 		[ -z "${2}" ] && {
 			echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы ${NOCL}"
 			echo -e "${SUFF}${BLUE}исполняет AdGuard Home, заменяющий связку [dnsmasq + dnscrypt_proxy2 + adblock].${NOCL}"
-			echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
-			echo -e "${SUFF}${BLUE}Для перехода на связку с dnsmasq запустите команду ${GREEN}kvas adguard off${NOCL}"
+			echo -e "${SUFF}${BLUE}Единовременно FRT может работать только с одной из этих связок.${NOCL}"
+			echo -e "${SUFF}${BLUE}Для перехода на связку с dnsmasq запустите команду ${GREEN}frt adguard off${NOCL}"
 		}
         eval "${1}=1";
     else
@@ -364,8 +364,8 @@ exit_when_dnsmasq_on(){
 		[ -z "${2}" ] && {
 			echo -e "${SUFF}${BLUE}Сейчас функции DNS сервера, шифрования DNS трафика и функции блокировки рекламы${NOCL}"
 			echo -e "${SUFF}${BLUE}исполняет связка [dnsmasq + dnscrypt_proxy2 + adblock], заменяющая AdGuard Home.${NOCL}"
-			echo -e "${SUFF}${BLUE}Единовременно Квас может работать только с одной из этих связок.${NOCL}"
-			echo -e "${SUFF}${BLUE}Для перехода на AdGuard Home запустите команду ${GREEN}kvas adguard on${NOCL}"
+			echo -e "${SUFF}${BLUE}Единовременно FRT может работать только с одной из этих связок.${NOCL}"
+			echo -e "${SUFF}${BLUE}Для перехода на AdGuard Home запустите команду ${GREEN}frt adguard on${NOCL}"
 		}
         eval "${1}=1";
     else
@@ -613,7 +613,7 @@ adguardhome_setup() {
 	fi
 	[ -f "/opt/apps/frt/etc/init.d/S99adguard" ] && cp /opt/apps/frt/etc/init.d/S99adguard "${ADGUARDHOME_DEMON}"
 #	удаляем сервис запуска квас так как его теперь будет заменять файл сервиса adguard
-	rm -f "${KVAS_START_FILE}"
+	rm -f "${FRT_START_FILE}"
 #	меняем dns в настройках ipset
 	ipset_dns_change "${localhost}#${port}"
 
@@ -780,7 +780,7 @@ adguardhome_install_locally() {
 		echo "Установите AdGuard Home на роутер после завершения установки пакета"
 		echo -e "Для этого наберите команду ${GREEN}opkg install adguardhome-go${NOCL}"
 		echo "и следуйте рекомендациям на экране, после настройки AdGuard Home"
-		echo "запустите команду ${GREEN}kvas adguard on${NOCL}."
+		echo "запустите команду ${GREEN}frt adguard on${NOCL}."
 	else
 	
 		ready "Устанавливаем пакет AdGuard Home на роутер..."
@@ -899,7 +899,7 @@ cmd_adguardhome_off(){
 		/opt/etc/init.d/S09dnscrypt-proxy2 stop &> /dev/null
 		kill -9 $(pgrep dnscrypt-proxy) &> /dev/null
 	}
-	cp /opt/apps/frt/etc/init.d/S96kvas "${KVAS_START_FILE}"
+	cp /opt/apps/frt/etc/init.d/S96frt "${FRT_START_FILE}"
 	dnsmasq_install '' &> /dev/null
 	#	Обновляем правила ip4tables для доступного соединения
 	ip4__flush 'chain'
@@ -961,7 +961,7 @@ ikev2_include_to_list(){
 				txt="1. Сеть \"VPN-сервер\" IKEv2 [${net_pool}]"
 				prn="$(_join_ready "${txt}" "${status}" "${color}" $((LENGTH - MINUS)))"
                 ready "${prn}"
-                cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+                cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]ikev2" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
         fi
 
 }
@@ -988,7 +988,7 @@ guest_include_to_list(){
 #       отображаем все гостевые интерфейсы
 	prn="$(_join_ready "${num}. Сеть ${_desc}" "${status}" ${color} $((LENGTH - MINUS)))"
         ready "${prn}"
-        cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
+        cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -q "[^_]${ent_inf}" && when_ok "ДОБАВЛЕНА" || when_alert "НЕ ДОБАВЛЕНА"
 }
 
 warning_info(){
@@ -1038,7 +1038,7 @@ cmd_bridge_vpn_access_list() {
 
 	num=0
 	#        Подключаем IKEv2 VPN-сервер
-	if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
+	if cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi ikev2; then
 			if [ -z "${wild}" ] || [ "${wild}" = del ]; then
 					ikev2_item=$(ikev2_include_to_list)
 					[ -n "${ikev2_item}" ] && {
@@ -1068,7 +1068,7 @@ cmd_bridge_vpn_access_list() {
 				desc=$(echo "${desc_full}" | sed 's|\"\(.*\)\".*|\1|')
 				ent_inf=$(cat /opt/etc/inface_equals | grep "${desc}" | cut -d'|' -f2)
 			fi
-			if cat < "${KVAS_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
+			if cat < "${FRT_CONF_FILE}" | grep 'INFACE_GUEST_ENT=' | grep -qi "${ent_inf}"; then
 
 				if [ -z "${wild}" ] || [ "${wild}" = del ]; then
 					num=$((num + 1))
@@ -1092,9 +1092,9 @@ cmd_bridge_vpn_access_list() {
 # ------------------------------------------------------------------------------------------
 
 del_ikev2_net_from_config(){
-		has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
+		has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ,]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
-        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${KVAS_CONF_FILE}"
+        sed -i '/INFACE_GUEST_ENT=/,/^$/ s/ikev2[,]\{0,1\}//; s/[ ]//g' "${FRT_CONF_FILE}"
 }
 
 ikev2_net_access_del() {
@@ -1114,7 +1114,7 @@ cmd_bridge_vpn_access_del() {
 			ikev2_net_access_del
 		else
 			bridge_vpn_access_del "${guest_bridge_id}"
-			sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/[ ,]//g' "${KVAS_CONF_FILE}"
+			sed -i '/INFACE_GUEST_ENT=/,/^$/ s/'"${guest_bridge_id}"'[,]\{0,1\}//; s/[ ,]//g' "${FRT_CONF_FILE}"
 		fi
 		ready "Перезапускаем DNS сервер"
 		if cmd_adguardhome_status | grep -q "ВКЛЮЧЕН" ; then
@@ -1146,10 +1146,10 @@ bridge_access_add() {
 		ready "Добавление гостевого интерфейса '${cli_inface}' завершено"
 # set +xe
 #		если сеть уже есть в списке, то пропускаем добавление
-		grep INFACE_GUEST_ENT "${KVAS_CONF_FILE}" | grep -q "${guest_bridge_id}" || {
-			has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
+		grep INFACE_GUEST_ENT "${FRT_CONF_FILE}" | grep -q "${guest_bridge_id}" || {
+			has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p')
 			[ -n "${has_guest_nets}" ] && point=',' || point=''
-			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g; s/[ ]//g" "${KVAS_CONF_FILE}"
+			sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}${guest_bridge_id}/g; s/[ ]//g" "${FRT_CONF_FILE}"
 		}
 
 #       Слушаем 53 порт гостевого интерфейса
@@ -1190,10 +1190,10 @@ ikev2_setup() {
 }
 
 add_ikev2_net_to_config(){
-        has_guest_nets=$(cat <  "${KVAS_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
+        has_guest_nets=$(cat <  "${FRT_CONF_FILE}" | sed -n 's/INFACE_GUEST_ENT=\(.*\)/\1/p;'| sed 's/[ ]//g')
         [ -n "${has_guest_nets}" ] && point=',' || point=''
         del_ikev2_net_from_config
-        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${KVAS_CONF_FILE}"
+        sed -i "s/\(INFACE_GUEST_ENT=.*\)/\1${point}ikev2/g; s/[ ]//g" "${FRT_CONF_FILE}"
 }
 
 ikev2_net_access_add() {
@@ -1541,8 +1541,8 @@ dns_show() {
 vpn_off() {
 #	ready "Интерфейс vpn отключен "
 	[ -f "/opt/etc/ndm/netfilter.d/100-vpn-mark" ] && rm -f "/opt/etc/ndm/netfilter.d/100-vpn-mark"
-	[ -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
-	[ -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
+	[ -f /opt/etc/ndm/ifstatechanged.d/100-frt-vpn ] && rm -f /opt/etc/ndm/ifstatechanged.d/100-frt-vpn
+	[ -f /opt/etc/ndm/iflayerchanged.d/100-frt-vpn ] && rm -f /opt/etc/ndm/iflayerchanged.d/100-frt-vpn
 	ip4__flush 'chain table' &> /dev/null
 }
 # ------------------------------------------------------------------------------------------
@@ -1613,8 +1613,8 @@ vpn_on() {
 #		Если версия фирменной оболочки равно или больше 4.0,
 #		то применяем механизм iflayerchanged.d, если нет, то ifstatechanged.d
 		hook_dir=$(get_hook_dir)
-		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-		chmod +x "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
+		cp "/opt/apps/${APP_NAME}/etc/ndm/${hook_dir}/100-frt-vpn" "/opt/etc/ndm/${hook_dir}/100-frt-vpn"
+		chmod +x "/opt/etc/ndm/${hook_dir}/100-frt-vpn"
 
 		state=$(get_value_interface_field "${inface_cli}" state)
 
@@ -2164,7 +2164,7 @@ show_vpn_list() {
 		is_current_vpn=$(echo "${line}" | grep -i "${inface_entware}")
 		cli_inface_desc=$(echo "${line}" | cut -d'|' -f3 | xargs)
 		if [ -z "${cli_inface_desc}" ]; then
-			cli_inface_desc='системный, для устранения вызовите kvas vpn rescan'
+			cli_inface_desc='системный, для устранения вызовите frt vpn rescan'
 		fi
 		cli_inface=$(echo "${line}" | cut -d"|" -f1)
 		ent_inface=$(echo "${line}" | cut -d"|" -f2)
@@ -2907,9 +2907,9 @@ del_multy_hosts() {
 		ready "Удаляем ${YELLOW}${host_}${NOCL} из списка защищенных..."
 		grep -q -F -x -- "${host_}" "${FRT_LIST_FILE}" && when_ok "УДАЛЕН" || when_alert "НЕТ В СПИСКЕ"
 	done
-	grep -v -F -f "${_tmp_rm}" "${FRT_LIST_FILE}" > "${FRT_LIST_FILE}.tmp" && mv "${FRT_LIST_FILE}.tmp" "${FRT_LIST_FILE}"
+	grep -v -F -x -f "${_tmp_rm}" "${FRT_LIST_FILE}" > "${FRT_LIST_FILE}.tmp" && mv "${FRT_LIST_FILE}.tmp" "${FRT_LIST_FILE}"
 	if cmd_adguardhome_status | grep -q ВКЛЮЧЕН && [ -f "${ADGUARD_IPSET_FILE}" ]; then
-		grep -v -F -f "${_tmp_rm}" "${ADGUARD_IPSET_FILE}" > "${ADGUARD_IPSET_FILE}.tmp" && mv "${ADGUARD_IPSET_FILE}.tmp" "${ADGUARD_IPSET_FILE}"
+		grep -v -F -x -f "${_tmp_rm}" "${ADGUARD_IPSET_FILE}" > "${ADGUARD_IPSET_FILE}.tmp" && mv "${ADGUARD_IPSET_FILE}.tmp" "${ADGUARD_IPSET_FILE}"
 	fi
 	rm -f "${_tmp_rm}"
 	print_line
@@ -3364,11 +3364,11 @@ cmd_show_list() {
 					print_host_list
 				else
 					print_line
-					warning "Пожалуйста, добавьте данные в список при помощи 'kvas add имя_домена'"
+					warning "Пожалуйста, добавьте данные в список при помощи 'frt add имя_домена'"
 				fi
 			else
 				print_line
-				warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
+				warning "Пожалуйста, добавьте в него данные при помощи 'frt add имя_домена'"
 			fi
 		else
 			print_host_list
@@ -3387,7 +3387,7 @@ cmd_show_list() {
 				fi
 		else
 			error "Защищенного списка не существует."
-			warning "Пожалуйста, добавьте в него данные при помощи 'kvas add имя_домена'"
+			warning "Пожалуйста, добавьте в него данные при помощи 'frt add имя_домена'"
 		fi
 	fi
 }

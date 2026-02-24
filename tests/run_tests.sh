@@ -21,7 +21,7 @@ run_one() {
 
 total=0
 failed=0
-for t in list_parsing.sh dnsmasq_generation.sh host_add_del.sh; do
+for t in list_parsing.sh dnsmasq_generation.sh host_add_del.sh error_cases.sh; do
   total=$((total+1))
   run_one "${t}" || failed=$((failed+1))
 done

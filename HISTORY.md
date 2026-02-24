@@ -1,3 +1,11 @@
+## Быстрый сборщик, тесты, легаси, README, чистка
+
+- **Быстрый сборщик .ipk:** режим `--quick` / `--pack-only` в `scripts/build-ipk.sh` — сборка .ipk без Docker и без полного Entware SDK (требуется `ar`). Шаблон postinst: `scripts/postinst.in`.
+- **Тесты:** добавлен `tests/error_cases.sh` (пустой список, удаление несуществующего, дубликаты, спецсимволы); в dnsmasq — проверка наличия файла списка, отказ от `cat file | grep` в пользу прямого `grep` по файлу; в `del_multy_hosts` — `grep -v -F -x -f` для точного удаления строк.
+- **Легаси:** везде переход на имена 100-frt-vpn (вместо 100-kvas-vpn), `cmd_pause_frt` / `cmd_unpause_frt`; удалён файл `100-unblock-vpn`; в setup/vpn — симлинки и копирование по именам frt-*; обновлён `frt.help` (dns crypt on|off|status).
+- **README:** оформлен в стиле Rudy Wolf, авторство, раздел быстрой сборки, структура таблицей.
+- **Чистка:** KVAS_CONF_FILE → FRT_CONF_FILE в vpn/debug; пользовательские сообщения и подсказки переведены на команду `frt`; в 100-vpn-mark путь на `/opt/apps/frt`; в build-ipk.sh — FRT, режим quick.
+
 ## Рефакторинг: Forest Router Tool (FRT), DoT, оптимизация
 
 - **Переименование:** пакет и команда переименованы из KVAS/Квас в **Forest Router Tool (FRT)**. Команда: `frt`, конфиги: `frt.conf`, `frt.list`, ipset: `FRT_LIST`, путь: `/opt/apps/frt`.

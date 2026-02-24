@@ -20,7 +20,7 @@ setup_test_provider_dns(){
 
 	is_dns_override && {
 		echo "Подключаем DNS провайдера..."
-		echo "В случае, выхода из сессии, зайдите снова по ssh и выполните команду 'kvas setup'"
+		echo "В случае выхода из сессии зайдите снова по ssh и выполните команду 'frt setup'"
 		post_api_query '[{"opkg": {"no dns-override": true}},{"system": {"configuration": {"save": true}}}]' &>/dev/null && when_ok || when_err
 	} 
 	# if ! is_dns_override ; then
@@ -106,7 +106,7 @@ restore_backup(){
 
 
 # Функция временной остановки работы пакета
-cmd_pause_kvas(){
+cmd_pause_frt(){
 
 	ready "Временно приостановливаем работу FRT..."
 	{
@@ -143,19 +143,16 @@ restart_all_services(){
 
 }
 # Функция восстановления архивных файлов конфигурации пакета
-cmd_unpause_kvas(){
+cmd_unpause_frt(){
 
-	ready "Восстанавливаем работу Кваса после паузы..."
+	ready "Восстанавливаем работу FRT после паузы..."
 	{
 		#  Восстанавливаем из архива файлы механизма ndm
-		[ -f ${FRT_BACKUP_PATH}/100-kvas-vpn-layer ] && {
-			mv ${FRT_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
+		[ -f ${FRT_BACKUP_PATH}/100-frt-vpn-layer ] && {
+			mv ${FRT_BACKUP_PATH}/100-frt-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-frt-vpn
 		}
-		[ -f ${FRT_BACKUP_PATH}/100-kvas-vpn-layer ] && {
-			mv ${FRT_BACKUP_PATH}/100-kvas-vpn-layer /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn 
-		}
-		[ -f ${FRT_BACKUP_PATH}/100-kvas-vpn-state ] && {
-			mv ${FRT_BACKUP_PATH}/100-kvas-vpn-state /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+		[ -f ${FRT_BACKUP_PATH}/100-frt-vpn-state ] && {
+			mv ${FRT_BACKUP_PATH}/100-frt-vpn-state /opt/etc/ndm/ifstatechanged.d/100-frt-vpn
 		}
 		[ -f ${FRT_BACKUP_PATH}/100-proxy-redirect ] && {
 			mv ${FRT_BACKUP_PATH}/100-proxy-redirect /opt/etc/ndm/netfilter.d/100-proxy-redirect  
@@ -341,16 +338,16 @@ rm_package_files() {
 		rm_file /opt/etc/ndm/netfilter.d/100-vpn-mark
 		rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
 
-		rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
-		rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-		rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
-		rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-		rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+		rm_file /opt/etc/ndm/ifcreated.d/frt-iface-add
+		rm_file /opt/etc/ndm/ifdestroyed.d/frt-iface-del
+		rm_file /opt/etc/ndm/iflayerchanged.d/frt-ips-reset
+		rm_file /opt/etc/ndm/iflayerchanged.d/100-frt-vpn
+		rm_file /opt/etc/ndm/ifstatechanged.d/100-frt-vpn
 
-		rm_file /opt/etc/ndm/fs.d/15-kvas-start.sh
+		rm_file /opt/etc/ndm/fs.d/15-frt-start.sh
 		rm_file /opt/etc/cron.5mins/check_vpn
 
-		rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
+		rm_file /opt/etc/dnsmasq.d/frt.dnsmasq
 		rm_dir /opt/etc/adblock
 		rm_dir /opt/tmp/adblock
 
@@ -366,11 +363,11 @@ rm_previous_version_files() {
 	rm_file /opt/etc/ndm/netfilter.d/100-proxy-redirect
 
 	# текущие, создадутся в cmd_install позже
-	rm_file /opt/etc/ndm/ifcreated.d/kvas-iface-add
-	rm_file /opt/etc/ndm/ifdestroyed.d/kvas-iface-del
-	rm_file /opt/etc/ndm/iflayerchanged.d/kvas-ips-reset
-	rm_file /opt/etc/ndm/iflayerchanged.d/100-kvas-vpn
-	rm_file /opt/etc/ndm/ifstatechanged.d/100-kvas-vpn
+	rm_file /opt/etc/ndm/ifcreated.d/frt-iface-add
+	rm_file /opt/etc/ndm/ifdestroyed.d/frt-iface-del
+	rm_file /opt/etc/ndm/iflayerchanged.d/frt-ips-reset
+	rm_file /opt/etc/ndm/iflayerchanged.d/100-frt-vpn
+	rm_file /opt/etc/ndm/ifstatechanged.d/100-frt-vpn
 	# исторический
 	rm_file /opt/etc/ndm/wan.d/internet-up
 
@@ -387,7 +384,7 @@ rm_previous_version_files() {
 	rm_file /opt/etc/cron.daily/ipset.kvas
 
 	# текущие, создадутся позже
-	rm_file /opt/etc/dnsmasq.d/kvas.dnsmasq
+	rm_file /opt/etc/dnsmasq.d/frt.dnsmasq
 	rm_dir /opt/etc/adblock
 	rm_dir /opt/tmp/adblock
 	# исторические
@@ -495,15 +492,15 @@ cmd_install(){
 
 	[ -d "/opt/etc/ndm/iflayerchanged.d" ] || mkdir -p /opt/etc/ndm/iflayerchanged.d
 	hook_dir=$(get_hook_dir); home_dir=/opt/apps/frt
-	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-kvas-vpn" "/opt/etc/ndm/${hook_dir}/100-kvas-vpn"
-	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/kvas-ips-reset" "/opt/etc/ndm/iflayerchanged.d/kvas-ips-reset"
-	ln -sf "${home_dir}/etc/ndm/ifcreated.d/kvas-iface-add" "/opt/etc/ndm/ifcreated.d/kvas-iface-add"
-	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/kvas-iface-del" "/opt/etc/ndm/ifdestroyed.d/kvas-iface-del"
+	ln -sf "${home_dir}/etc/ndm/${hook_dir}/100-frt-vpn" "/opt/etc/ndm/${hook_dir}/100-frt-vpn"
+	ln -sf "${home_dir}/etc/ndm/iflayerchanged.d/frt-ips-reset" "/opt/etc/ndm/iflayerchanged.d/frt-ips-reset"
+	ln -sf "${home_dir}/etc/ndm/ifcreated.d/frt-iface-add" "/opt/etc/ndm/ifcreated.d/frt-iface-add"
+	ln -sf "${home_dir}/etc/ndm/ifdestroyed.d/frt-iface-del" "/opt/etc/ndm/ifdestroyed.d/frt-iface-del"
 
 	check_crypto_ssr_libs
 
-	[ -f "${KVAS_START_FILE}" ] || cp -f /opt/apps/frt/etc/init.d/S96kvas "${KVAS_START_FILE}"
-	chmod +x "${KVAS_START_FILE}"
+	[ -f "${FRT_START_FILE}" ] || cp -f /opt/apps/frt/etc/init.d/S96frt "${FRT_START_FILE}"
+	chmod +x "${FRT_START_FILE}"
 
 	# Если не установлен xray - устанавливаем его
 	has_xray_installed || opkg install xray &> /dev/null
@@ -774,7 +771,7 @@ cmd_uninstall() {
 		#if [ $? = 0 ]; then when_ok 'УСПЕШНО'; else when_bad 'ОШИБКА'; fi
 
 		ready 'Удаляем пакет Квас...'
-		opkg remove kvas --autoremove &> /dev/null 
+		opkg remove frt --autoremove &> /dev/null 
 		when_ok 'УСПЕШНО'
 
 		ready 'Удаляем интегрированные в систему файлы...'

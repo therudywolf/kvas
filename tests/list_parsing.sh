@@ -3,10 +3,11 @@
 . "${TESTS_DIR}/env.sh" 2>/dev/null || . "./env.sh"
 
 list_file="${FRT_LIST_FILE_TMP}"
+ipset_file="${FRT_DNSMASQ_TMP}"
 ok=0
 fail=0
 
-cleanup() { rm -f "${list_file}"; }
+cleanup() { rm -f "${list_file}" "${ipset_file}"; }
 trap cleanup EXIT
 
 # Create sample list: comments, empty, IP, CIDR, range, domain
@@ -25,10 +26,8 @@ SAMPLE
 count=$(grep -v '^[[:space:]]*#' "${list_file}" | grep -v '^[[:space:]]*$' | grep -c . || true)
 [ "${count}" -eq 5 ] && { ok=$((ok+1)); echo "PASS: list_parsing line count"; } || { fail=$((fail+1)); echo "FAIL: list_parsing line count (got ${count}, expected 5)"; }
 
-# Check no IP in left part of dnsmasq output: run dnsmasq with test paths
-ipset_file="${FRT_DNSMASQ_TMP}"
+# Check no IP in left part of dnsmasq output
 host_list="${list_file}"
-export ipset_file host_list
 > "${ipset_file}"
 while read -r line || [ -n "${line}" ]; do
   line=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' ')

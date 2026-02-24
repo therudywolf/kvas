@@ -47,6 +47,7 @@ vpn net|guest [add|del] - доступ гостевой/VPN сети к спис
 vpn gateway <IP>        - VPN на отдельном устройстве в сети.
 
 dns                     - текущий DNS для работы пакета.
+dns crypt on|off|status - DoT (stubby): вкл/выкл/статус.
 dns test <домен>        - тест DNS.
 dns server IP:PORT      - удаленный DNS сервер в локальной сети.
 

@@ -11,6 +11,17 @@ fail=0
 cleanup() { rm -f "${list_file}" "${out_file}"; }
 trap cleanup EXIT
 
+# Empty list -> empty output
+> "${list_file}"
+> "${out_file}"
+while read -r line || [ -n "${line}" ]; do
+  line=$(echo "${line}" | sed 's/#.*$//g' | tr -s ' '); [ -z "${line}" ] && continue
+  case "${line}" in \#*) continue;; esac
+  echo "${line}" | grep -Eq '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' && continue
+  host=$(echo "${line}" | sed 's/\*//g;'); echo "ipset=/${host}/FRT_LIST" >> "${out_file}"
+done < "${list_file}"
+[ ! -s "${out_file}" ] && ok=$((ok+1)) || { fail=$((fail+1)); echo "FAIL: empty list should give empty dnsmasq"; }
+
 # Minimal list: two domains, one IP (must be skipped in dnsmasq)
 printf '%s\n' 'example.com' 'test.example.org' '10.0.0.1' > "${list_file}"
 > "${out_file}"
