@@ -11,7 +11,7 @@
 #	Лицензия: Apache License 2.0
 # ------------------------------------------------------------------------------------------
 # подключаем основную библиотеку
-. /opt/apps/kvas/bin/libs/main
+. /opt/apps/frt/bin/libs/main
 
 HOSTS_FILE=/opt/etc/hosts
 #
@@ -60,22 +60,22 @@ cmd_hosts_one_add(){
 	[ -f ${HOSTS_FILE} ] || touch ${HOSTS_FILE}
 
 	if echo "${1}" | grep -qE "${IP_FILTER}"; then
-		ip_host=${1}
-		host=${2}
+		ip_to_write=${1}
+		host_to_write=${2}
 	elif echo "${2}" | grep -qE "${IP_FILTER}"; then
-		ip=${2}
-		host=${1}
+		ip_to_write=${2}
+		host_to_write=${1}
 	else
 		error "Неправильно задан один из аргументов!" nl
 		print_line
 		exit 0
 	fi
-	ready "Доменное имя или IP ${host} удален/о..."
-	"${host}" >> ${HOSTS_FILE}
+	ready "Доменное имя или IP ${host_to_write} добавлен/о..."
+	echo "${ip_to_write} ${host_to_write}" >> "${HOSTS_FILE}"
 
 	[ $? = 0 ] && {
 		when_ok "УСПЕШНО"
-		dns_server_restart "${host}"
+		dns_server_restart "${host_to_write}"
 	} || when_bad "ОШИБКА"
 
 }

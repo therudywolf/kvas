@@ -13,6 +13,7 @@
 
 . /opt/apps/frt/bin/libs/main
 . /opt/apps/frt/bin/libs/vpn
+. /opt/apps/frt/bin/libs/debug
 
 NOT_IN_TABLE=false
 IPSET=$(which ipset)
@@ -132,7 +133,7 @@ vpn_check(){
 		connected=$(is_vpn_interface_connected "${vpn_cli}")
 		ready "Состояние vpn соединения ${vpn_cli_desc}"
 		if [ "${connected}" = 'on' ]; then
-			when_ok "ПОДКЮЧЕНО"
+			when_ok "ПОДКЛЮЧЕНО"
 
 			ready "Таблица VPN маршрутов id=1001"
 			/opt/etc/ndm/fs.d/100-vpn start
@@ -171,7 +172,7 @@ vpn_check(){
 			connected=$(is_vpn_interface_connected "${vpn_cli}")
 			if [ "${connected}" = 'on' ]; then
 			# if [ -n "$(echo "${status}" | grep 'interface is up.' )" ]; then
-				when_ok "ПОДКЮЧЕНО"
+				when_ok "ПОДКЛЮЧЕНО"
 			else
 				when_bad "ОШИБКА"
 				error "Запустите диагностику командой frt debug"
