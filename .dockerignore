@@ -1,0 +1,7 @@
+# Уменьшаем контекст сборки Docker (только для Dockerfile.ci)
+.git
+output
+*.ipk
+.build-*
+.cursor
+node_modules

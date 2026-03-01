@@ -79,6 +79,11 @@ build_quick() {
     cp "${REPO_ROOT}/opt/etc/init.d/S96frt" "${BUILD_QUICK}/data/opt/etc/init.d/"
     cp -r "${REPO_ROOT}/opt/." "${BUILD_QUICK}/data/opt/apps/frt/"
 
+    # Normalize line endings to LF in data (avoid opkg "Malformed" on router when built on Windows)
+    find "${BUILD_QUICK}/data" -type f 2>/dev/null | while read -r f; do
+        [ -f "$f" ] && sed 's/\r$//' "$f" > "${f}.nocr" 2>/dev/null && mv "${f}.nocr" "$f" || true
+    done
+
     mkdir -p "${BUILD_QUICK}/control"
     cat > "${BUILD_QUICK}/control/control" << EOF
 Package: ${APP_NAME}
@@ -90,10 +95,14 @@ Depends: libpcre, jq, curl, knot-dig, nano-full, cron, bind-dig, dnsmasq-full, i
 EOF
 
     sed -e "s/@PKG_VERSION@/${PKG_VERSION}/g" -e "s/@PKG_RELEASE@/${PKG_RELEASE}/g" \
-        "${REPO_ROOT}/scripts/postinst.in" > "${BUILD_QUICK}/control/postinst"
+        "${REPO_ROOT}/scripts/postinst.in" | sed 's/\r$//' > "${BUILD_QUICK}/control/postinst"
     chmod +x "${BUILD_QUICK}/control/postinst"
 
-    echo "2.0" > "${BUILD_QUICK}/debian-binary"
+    # debian-binary: exactly "2.0" + LF (no CRLF), required by opkg
+    printf '%s\n' '2.0' > "${BUILD_QUICK}/debian-binary"
+    # Strip CR from control file (Windows build can leave CRLF)
+    sed 's/\r$//' "${BUILD_QUICK}/control/control" > "${BUILD_QUICK}/control/control.tmp" && mv "${BUILD_QUICK}/control/control.tmp" "${BUILD_QUICK}/control/control"
+
     ( cd "${BUILD_QUICK}/control" && tar --numeric-owner --owner=0 --group=0 -czf ../control.tar.gz . )
     ( cd "${BUILD_QUICK}/data" && tar --numeric-owner --owner=0 --group=0 -czf ../data.tar.gz . )
     ( cd "${BUILD_QUICK}" && ar rv "${OUTPUT_DIR}/${APP_NAME}_${PKG_VERSION}-${PKG_RELEASE}_all.ipk" debian-binary control.tar.gz data.tar.gz )

@@ -18,6 +18,7 @@
 - Требуется: утилита **ar** (пакет binutils).
 - Результат: `./output/frt_<version>-<release>_all.ipk`.
 - На Windows: запускать через **bash** (WSL или Git Bash): `bash scripts/build-ipk.sh --quick`, не через PowerShell.
+- **Важно для Keenetic:** при сборке под Windows opkg на роутере может выдать *Malformed package file* (формат архива `ar` несовместим). В этом случае собирайте пакет в Docker — см. раздел «Сборка для роутера (Keenetic)» ниже.
 
 ## Сборка через Docker или SDK
 
@@ -65,6 +66,23 @@ docker-compose run --rm ci
 - Используется образ из `builder/Dockerfile.ci` (debian:11-slim + binutils + bash).
 - Монтируется корень репозитория; выполняется `./scripts/ci.sh --quick`.
 - Артефакт .ipk появляется в `./output` на хосте.
+
+### Сборка для роутера (Keenetic) — если opkg выдаёт «Malformed package file»
+
+Если при установке на Keenetic появляется ошибка *pkg_init_from_file: Malformed package file*, пакет был собран под Windows — формат архива `ar` не совместим с opkg. Нужно собирать .ipk **в Linux-контейнере**:
+
+**Windows (PowerShell или cmd):**
+```cmd
+scripts\build-for-router.cmd
+```
+
+**Или вручную (bash/WSL):**
+```bash
+docker-compose build ci
+docker-compose run --rm ci
+```
+
+Первый запуск (сборка образа) может занять 3–10 минут. После сборки скопируйте файл из `output/frt_*.ipk` на роутер и установите: `opkg install /path/to/frt_*.ipk`.
 
 ## CI (Jenkins)
 
